@@ -1,6 +1,6 @@
 ### **Introduction:**
 
-This project is for Transferring data from Hbase table to different targets like HDFS file/ Hive table / another Hbase Table. 
+This project is for Transferring data from HBase table to different targets like HDFS file/ Hive table / another HBase Table. 
 
 ### **Background:**
 
