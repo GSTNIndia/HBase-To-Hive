@@ -1,0 +1,1 @@
+test:test->RK=|:hash(rtin)[0:7]|fp|rec_type|rtin|stin->D.SR1:string::,D.SR3:string::,D.SR2:string::,D.TAX:int::,D.RTYP<X>:string::,D.RC<X>:string::,D.ECOM<X>:string::->X=|:provider|fy|inum;

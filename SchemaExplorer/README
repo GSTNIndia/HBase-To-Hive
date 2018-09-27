@@ -1,0 +1,5 @@
+HBase Wide Table Explorer
+=========================
+
+To provide light-weight SQL-Like interface to query HBase tables
+

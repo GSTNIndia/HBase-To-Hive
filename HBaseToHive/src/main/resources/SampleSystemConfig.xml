@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright 2018 Goods And Services Tax Network
+  
+  Licensed under the Apache License, Version 2.0 (the "License"); you may not
+  use this file except in compliance with the License.  You may obtain a copy
+  of the License at
+  
+    http://www.apache.org/licenses/LICENSE-2.0
+  
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+  License for the specific language governing permissions and limitations under
+  the License.
+-->
+<systemConfig>
+	
+	<spark.master>yarn-client</spark.master>
+
+	<spark.driver.memory>2g</spark.driver.memory>
+
+	<spark.executor.memory>2g</spark.executor.memory>
+	
+	<spark.dynamicAllocation.initialExecutors>5</spark.dynamicAllocation.initialExecutors>
+	
+	<spark.dynamicAllocation.minExecutors>5</spark.dynamicAllocation.minExecutors>
+	
+	<spark.dynamicAllocation.maxExecutors>10</spark.dynamicAllocation.maxExecutors>
+	
+	<spark.driver.cores>2</spark.driver.cores>
+	
+	<spark.executor.cores>2</spark.executor.cores>
+	
+	<numberOfPartitions>32</numberOfPartitions>
+	
+	<runJobsParallelly>true</runJobsParallelly>
+	
+	<sourceHBaseZk>sourceZkQuorum</sourceHBaseZk>
+
+	<targetHBaseZk>targetZkQuorum</targetHBaseZk>
+
+<!-- 	<activeCluster>DC2</activeCluster> -->
+
+<!-- 	<jobExecutionCluster>DC1</jobExecutionCluster> -->
+
+	<hdfsTargetProperties>
+		<destHdfsUrl>namenodeURL</destHdfsUrl>
+		<hdfsBasePath>/path/in/HDFS</hdfsBasePath>
+	</hdfsTargetProperties>
+
+	<timestampTable>
+		<tableName>TIMESTAMP_TABLE</tableName>
+		<columnFamily>D</columnFamily>
+		<columnName>LastReadTime</columnName>
+	</timestampTable>
+
+</systemConfig>

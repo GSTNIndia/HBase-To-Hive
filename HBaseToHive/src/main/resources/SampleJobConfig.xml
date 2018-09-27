@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright 2018 Goods And Services Tax Network
+  
+  Licensed under the Apache License, Version 2.0 (the "License"); you may not
+  use this file except in compliance with the License.  You may obtain a copy
+  of the License at
+  
+    http://www.apache.org/licenses/LICENSE-2.0
+  
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+  License for the specific language governing permissions and limitations under
+  the License.
+-->
+<jobConfig>
+
+	<target>hive</target>
+
+	<loadType>full</loadType>
+
+	<minTimeStamp></minTimeStamp>
+	<maxTimeStamp></maxTimeStamp>
+
+	<jobs>
+	
+		<job>
+		
+			<targetSchemaName>INVOICES_fact_rk_typeB2B</targetSchemaName>
+			<selectColumns>D.RTYP&lt;X&gt;,D.ECOM&lt;X&gt;,D.SR1</selectColumns>
+			<sourceSchemaName>INVOICES_rk_typeB2B</sourceSchemaName>
+			<conditions>(rec_type = "B2B" or rec_type = "B2BA") and (D.RTYP&lt;X&gt; &lt;= "1" and D.ECOM&lt;X&gt; != "N")</conditions>
+			
+			<reconList>
+				<recon>
+					<reconColumn>RTYP</reconColumn>
+					<reconOperation>count</reconOperation>
+				</recon>
+				<recon>
+					<reconColumn>ECOM</reconColumn>
+					<reconOperation>count</reconOperation>
+				</recon>
+			</reconList>
+
+		</job>
+
+		<job>
+		
+			<targetSchemaName>INVOICES_dim_jsn_rk_typeB2B</targetSchemaName>
+			<selectColumns>D.JSN&lt;X&gt;</selectColumns>
+			<sourceSchemaName>INVOICES_rk_typeB2B</sourceSchemaName>
+			<conditions>(rec_type = "B2B" or rec_type = "B2BA") and (D.RTYP&lt;X&gt; ="1" and D.ECOM&lt;X&gt; != "N")</conditions>
+			
+			<reconList>
+				<recon>
+					<reconColumn>camt</reconColumn>
+					<reconOperation>sum</reconOperation>
+				</recon>
+			</reconList>
+			
+		</job>
+
+	</jobs>
+
+</jobConfig>
