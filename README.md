@@ -1,3 +1,7 @@
+### ***HBase To Hive***
+
+![HBaseToHive Mascot](https://github.com/GSTNIndia/HBaseToHive/blob/master/mascot.jpg)
+
 ### **Introduction:**
 
 This project is for Transferring data from HBase table to different targets like HDFS file/ Hive table / another HBase Table. 
@@ -34,6 +38,9 @@ The framework has JSON adapter component. It parses the JSON read from source ta
 
 4.	Specifying filter conditions and select columns:
 The framework allows specifying filter conditions and select columns in JobConfig.xml file. Using this information framework fetches only the desired data from the source table. Filter conditions can be defined in same way as we define conditions in the where clause of SQL query using conditional operators (and/or), relational operators (<,>, = etc.). Filter conditions can be based on static columns, dynamic columns or even on row key components.
+
+5.  Support for Incremental Data Ingestion
+Framework supports incremental data ingestion from HBase tables. KEEP_DELETED_CELLS feature must be enabled for HBase tables to use this feature (Refer https://hbase.apache.org/book.html#cf.keep.deleted)
 
 ### **License:**
 This project is licensed under Apache License version 2.0. This project depends upon other third party open source components which are not bundled with this project and they have their own license terms. Please refer LICENSE-THIRD-PARTY file for more information. 
