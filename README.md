@@ -1,7 +1,6 @@
 ### ***HBase To Hive***
 
 ![HBaseToHive Mascot](https://github.com/GSTNIndia/HBaseToHive/blob/master/mascot.jpg)
-
 ### **Introduction:**
 
 This project is for Transferring data from HBase table to different targets like HDFS file/ Hive table / another HBase Table. 
