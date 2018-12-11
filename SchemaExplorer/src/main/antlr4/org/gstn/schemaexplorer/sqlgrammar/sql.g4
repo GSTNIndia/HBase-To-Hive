@@ -89,7 +89,7 @@ column  conditionalOperator  STRING_VALUE
 ;
 
 conditionalOperator:
-'='|'<='|'>='|'<'|'>'|'<>'|'!='
+'='|'<='|'>='|'<'|'>'|'<>'|'!='|'REGEXP'|'NOT REGEXP'
 ;
 
 operator:

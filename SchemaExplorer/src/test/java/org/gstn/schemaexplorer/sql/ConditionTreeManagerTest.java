@@ -363,6 +363,25 @@ public class ConditionTreeManagerTest {
 		tests.add(new TestData(" D.SR1<=\"Y\"  ", null));
 		
 		runExceptionTests(tests);
+		
+		//only pattern conditions: REGEXP and NOT REGEXP
+		tests = new ArrayList<>();
+		tests.add(new TestData(" stin REGEXP \"07.*\" ", true, getRowKeyStaticColumnsDataRecord1()));
+		tests.add(new TestData(" stin REGEXP \"07.*\" ", false, getRowKeyStaticColumnsDataRecord2()));
+		tests.add(new TestData(" stin NOT REGEXP \"08.*\" ", true, getRowKeyStaticColumnsDataRecord1()));
+		tests.add(new TestData(" stin NOT REGEXP \"08.*\" ", false, getRowKeyStaticColumnsDataRecord2()));
+		
+		//pattern conditions where pattern has escaped characters (check if rtin starting with 0* pattern 0\*.*)
+		tests.add(new TestData(" rtin REGEXP \"0\\*.*\" ", true, getRowKeyStaticColumnsDataRecord1()));
+		tests.add(new TestData(" rtin REGEXP \"0\\*.*\" ", false, getRowKeyStaticColumnsDataRecord2()));
+		
+		//mix of pattern and non pattern conditions 
+		tests.add(new TestData(" stin REGEXP \"07.*\" AND D.SR1 = \"Y\" ", true, getRowKeyStaticColumnsDataRecord1()));
+		tests.add(new TestData(" D.SR1 = \"Y\" AND stin REGEXP \"08.*\" ", false, getRowKeyStaticColumnsDataRecord1()));
+		
+		tests.add(new TestData(" stin REGEXP \"07.*\" ", true, getRowKeyStaticColumnsDataRecord1()));
+		
+		runTestsHavingDataRecord(tests);
 	}
 	
 
@@ -382,6 +401,24 @@ public class ConditionTreeManagerTest {
 					result = ConditionTreeManager.evaluateDyanmicColumnConditions(conditionTree, dataRecord);
 					Assert.assertEquals(testData.expectedDynamicResult, result);
 				}
+			} catch (Exception | AssertionError e) {
+				throw new AssertionError("For Condition: "+testData.conditions +"\n"+e);
+			}
+			
+		}
+	}
+	
+	public void runTestsHavingDataRecord(List<TestData> tests){
+		for (TestData testData : tests) {
+			Boolean result = null;
+			try {
+				String query = "select * from test where " + testData.conditions;
+				ConditionTree conditionTree = getConditionTreeFromSql(query);
+				DataRecord dataRecord = testData.getData();
+
+				result = ConditionTreeManager.evaluateStaticColumnAndRowKeyConditions(conditionTree, dataRecord);
+				Assert.assertEquals(testData.expectedStaticResult, result);
+				
 			} catch (Exception | AssertionError e) {
 				throw new AssertionError("For Condition: "+testData.conditions +"\n"+e);
 			}
@@ -430,6 +467,32 @@ public class ConditionTreeManagerTest {
 		return new DataRecord(keyList, valueList);
 	}
 	
+	public DataRecord getRowKeyStaticColumnsDataRecord1(){
+		List<Tuple> keyList = new ArrayList<>();
+		keyList.add(Tuple.rowkeyColumn("fp","2017-09"));
+		keyList.add(Tuple.rowkeyColumn("rec_type","B2B"));
+		keyList.add(Tuple.rowkeyColumn("rtin","0*R0001"));
+		keyList.add(Tuple.rowkeyColumn("stin","07S0001"));
+		
+		List<Tuple> valueList = new ArrayList<>();
+		valueList.add(Tuple.staticColumn("D", "SR1", "Y", String.class));
+		
+		return new DataRecord(keyList, valueList);
+	}
+	
+	public DataRecord getRowKeyStaticColumnsDataRecord2(){
+		List<Tuple> keyList = new ArrayList<>();
+		keyList.add(Tuple.rowkeyColumn("fp","2017-09"));
+		keyList.add(Tuple.rowkeyColumn("rec_type","B2B"));
+		keyList.add(Tuple.rowkeyColumn("rtin","R0001"));
+		keyList.add(Tuple.rowkeyColumn("stin","08S0001"));
+		
+		List<Tuple> valueList = new ArrayList<>();
+		valueList.add(Tuple.staticColumn("D", "SR1", "Y", String.class));
+		
+		return new DataRecord(keyList, valueList);
+	}
+	
 	public void addDynamicColumnsIntoDataRecord(DataRecord dataRecord) throws InvalidColumnException{
 		
 		dataRecord.addTupleToColumn("D", "RC", Tuple.dynamicColumn("D", "RC", "Y", "S|2017|I0001", DynamicColumnType.STATIC_PREFIX, String.class));
@@ -453,6 +516,8 @@ class TestData{
 	Boolean staticEvaluationExceptionExpected;
 	Boolean dynamicEvaluationExceptionExpected;
 	
+	DataRecord data;
+	
 	public TestData(String conditions, Boolean expectedStaticResult) {
 		super();
 		this.conditions = conditions;
@@ -474,6 +539,17 @@ class TestData{
 		if(dynamicEvaluationExceptionExpected!=null){
 			applyDynamic=true;
 		}
+	}
+	
+	public TestData(String conditions, Boolean expectedStaticResult, DataRecord dataRecord) {
+		super();
+		this.conditions = conditions;
+		this.expectedStaticResult = expectedStaticResult;
+		this.data=dataRecord;
+	}
+
+	public DataRecord getData() {
+		return data;
 	}
 	
 }

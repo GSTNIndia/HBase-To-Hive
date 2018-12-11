@@ -296,35 +296,53 @@ public class ConditionTreeManager {
 			return false;
 		} else {
 			try {
-				Class<?> dataType = tuple.getColumnDataType();
-				String operator = condition.getConditionalOperator();
-
-				Comparable<?> valueFromCondition = null;
-				Comparable<Comparable> valueFromTuple = null;
-
-				try {
-					valueFromCondition = DataTypeUtil.parseValueToType(condition.getValue(), dataType);
-				} catch (NumberFormatException e) {
-					System.err
-							.println("Exception in applyOperator while parsing condition value: " + condition.getValue()
-									+ " for column: " + condition.getColumnName() + " into data type: " + dataType);
-					throw e;
+				
+				if(condition.isPatternCondition()){
+					
+					String operator = condition.getConditionalOperator();
+					
+					String valueFromTuple = tuple.getColumnValue();
+					
+					boolean matchResult = condition.getPattern().matcher(valueFromTuple).matches();
+					
+					if(operator.equalsIgnoreCase("NOT REGEXP")){
+						return !matchResult;
+					}else{
+						return matchResult;
+					}
+					
+				}else{
+				
+					Class<?> dataType = tuple.getColumnDataType();
+					String operator = condition.getConditionalOperator();
+	
+					Comparable<?> valueFromCondition = null;
+					Comparable<Comparable> valueFromTuple = null;
+	
+					try {
+						valueFromCondition = DataTypeUtil.parseValueToType(condition.getValue(), dataType);
+					} catch (NumberFormatException e) {
+						System.err
+								.println("Exception in applyOperator while parsing condition value: " + condition.getValue()
+										+ " for column: " + condition.getColumnName() + " into data type: " + dataType);
+						throw e;
+					}
+	
+					try {
+						valueFromTuple = DataTypeUtil.parseValueToType(tuple.getColumnValue(), dataType);
+					} catch (NumberFormatException e) {
+						System.err.println("Exception in applyOperator while parsing tuple value: " + tuple.getColumnValue()
+								+ " for column: " + tuple.getColumnName() + " into data type: " + dataType);
+						throw e;
+					}
+	
+					// valueFromTuple should be compared with valueFromCondition and
+					// not vice versa, as the operator and values from conditions
+					// are to be compared with valueFromCondition
+					int compareResult = valueFromTuple.compareTo(valueFromCondition);
+	
+					return interpretCompareResult(compareResult, operator);
 				}
-
-				try {
-					valueFromTuple = DataTypeUtil.parseValueToType(tuple.getColumnValue(), dataType);
-				} catch (NumberFormatException e) {
-					System.err.println("Exception in applyOperator while parsing tuple value: " + tuple.getColumnValue()
-							+ " for column: " + tuple.getColumnName() + " into data type: " + dataType);
-					throw e;
-				}
-
-				// valueFromTuple should be compared with valueFromCondition and
-				// not vice versa, as the operator and values from conditions
-				// are to be compared with valueFromCondition
-				int compareResult = valueFromTuple.compareTo(valueFromCondition);
-
-				return interpretCompareResult(compareResult, operator);
 			} catch (Exception e) {
 				System.err.println("Error during applyOperator: " + e.getMessage());
 				throw e;

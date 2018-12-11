@@ -16,6 +16,8 @@
 package org.gstn.schemaexplorer.sql;
 
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.regex.Pattern;
 
 import org.gstn.schemaexplorer.exception.HQLException;
 import org.gstn.schemaexplorer.exception.InvalidSchemaException;
@@ -40,7 +42,12 @@ public class Condition implements Serializable {
 	private boolean rowKeyCondition = false;
 	// Indicates whether this condition is based on dynamic part
 	private boolean dynamicPartCondition = false;
-
+	// Indicates whether this condition is pattern based (i.e. REGEXP or NOT REGEXP)
+	private Boolean patternCondition = null;
+	//stores the compiled regex pattern if the condition is patternCondition
+	private Pattern pattern = null;
+	
+	
 	public Condition() {
 		columnFamily = "";
 		columnName = "";
@@ -187,7 +194,23 @@ public class Condition implements Serializable {
 	public boolean isDynamicPartCondition() {
 		return dynamicPartCondition;
 	}
-
+	
+	public boolean isPatternCondition() {
+		if(patternCondition==null){
+			patternCondition=Arrays.asList("REGEXP","NOT REGEXP").contains(conditionalOperator);
+		}
+		
+		return patternCondition;
+	}
+	
+	public Pattern getPattern(){
+		if(pattern==null){
+			pattern = Pattern.compile(value);
+		}
+		return pattern;
+		
+	}
+	
 	public void setDynamicPartCondition(boolean dynamicPartCondition) {
 		this.dynamicPartCondition = dynamicPartCondition;
 	}
