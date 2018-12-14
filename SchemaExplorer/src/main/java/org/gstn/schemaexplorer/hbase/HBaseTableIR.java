@@ -275,7 +275,11 @@ public class HBaseTableIR implements Serializable {
 	public List<HBaseColumn> getAllColumns(String schema){
 		return schemaColumnFields.get(schema).getAllColumns();
 	}
-
+	
+	public Map<String,Class> getSchemaJsonColumns(String schema){
+		return schemaColumnFields.get(schema).getSchemaJsonColumns();
+	}
+	
 	public void setDynamicPartSeparator(String schema, String dynamicPartSeparator) {
 		schemaColumnFields.get(schema).setDynamicPartSeparator(dynamicPartSeparator);
 	}

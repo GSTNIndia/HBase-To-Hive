@@ -16,8 +16,11 @@
 package org.gstn.schemaexplorer.sql;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.gstn.schemaexplorer.entity.DataRecord;
 import org.gstn.schemaexplorer.entity.DynamicColumnType;
@@ -35,9 +38,19 @@ import org.junit.Test;
 public class ConditionTreeManagerTest {
 
 	static HBaseTableExplorer exp;
+	static Map<String,Class> targetJsonFieldsDataTypes =  new HashMap<>();
+	
 	static{
 		exp = new HBaseTableExplorer("./src/test/resources/HBaseExplorerTest.schema");
+		
+		targetJsonFieldsDataTypes.put("A",Integer.class);
+		targetJsonFieldsDataTypes.put("B",String.class);
+		targetJsonFieldsDataTypes.put("C#C2#C21",BigDecimal.class);
+		targetJsonFieldsDataTypes.put("C#C2#C22",BigDecimal.class);
+		targetJsonFieldsDataTypes.put("C#C1",Integer.class);
+		
 	}
+	
 	
 	// each case should be tested for true,false and null(if applicable) And
 	// each pair should be tested for AND,OR
@@ -323,6 +336,41 @@ public class ConditionTreeManagerTest {
 		
 		runTests(tests);
 	}
+	
+	@Test
+	public void testJsonFieldCondition(){
+		List<TestData> tests = new ArrayList<>();
+		
+		tests.add(new TestData("B = \"Y\" ", null, null, true));
+		
+		tests.add(new TestData("B = \"Z\" ", null, null, false));
+		
+		tests.add(new TestData("C#C2#C22 = \"100\" ", null, null, true));
+		
+		tests.add(new TestData("C#C2#C22 = \"200\" ", null, null, false));
+		
+		tests.add(new TestData("C#C2#C22 > \"50\" ", null, null, true));
+		
+		tests.add(new TestData("C#C2#C22 > \"150\" ", null, null, false));
+		
+		tests.add(new TestData("C#C2#C22 > \"150\" OR D.SR1 = \"Y\" ", true, true, true));
+		
+		tests.add(new TestData("C#C2#C22 > \"50\" AND D.SR1 = \"Y\" ", null, null, true));
+		
+		tests.add(new TestData("C#C2#C22 > \"50\" AND AND D.ECOM<X> = \"Y\" AND D.SR1 = \"Y\" ", null, null, true));
+		
+		tests.add(new TestData("C#C2#C22 > \"50\" AND D.ECOM<X> = \"N\" AND D.SR1 = \"Y\" ", null, false, false));
+		
+		tests.add(new TestData("A < \"10\" ", null, null, true));
+		
+		tests.add(new TestData("C#C2#C22 > \"50\" AND A < \"10\"", null, null, true));
+		
+		tests.add(new TestData("C#C2#C22 > \"50\" AND A > \"10\"", null, null, false));
+		
+		tests.add(new TestData("C#C2#C22 > \"50\" AND D.RC<X> = \"Y\" ", null, null, true));
+		
+		runTestsForJsonConditions(tests);
+	}
 
 	@Test
 	public void testRelationalOperators(){
@@ -408,6 +456,36 @@ public class ConditionTreeManagerTest {
 		}
 	}
 	
+	public void runTestsForJsonConditions(List<TestData> tests){
+		for (TestData testData : tests) {
+			Boolean result = null;
+			try {
+				String query = "select * from test where " + testData.conditions;
+				ConditionTree conditionTree = getConditionTreeFromSql(query);
+				DataRecord dataRecord = getRowKeyStaticColumnsDataRecord();
+
+				result = ConditionTreeManager.evaluateStaticColumnAndRowKeyConditions(conditionTree, dataRecord);
+				Assert.assertEquals(testData.expectedStaticResult, result);
+				
+				if(testData.applyDynamic){
+					addDynamicColumnsIntoDataRecord(dataRecord);
+					result = ConditionTreeManager.evaluateDyanmicColumnConditions(conditionTree, dataRecord);
+					Assert.assertEquals(testData.expectedDynamicResult, result);
+				}
+				
+				if(testData.applyJsonConditions){
+					addJsonColumnsIntoDataRecord(dataRecord);
+					result = ConditionTreeManager.evaluateJsonConditions(conditionTree, dataRecord);
+					Assert.assertEquals(testData.expectedJsonResult, result);
+				}
+				
+			} catch (Exception | AssertionError e) {
+				throw new AssertionError("For Condition: "+testData.conditions +"\n"+e);
+			}
+			
+		}
+	}
+	
 	public void runTestsHavingDataRecord(List<TestData> tests){
 		for (TestData testData : tests) {
 			Boolean result = null;
@@ -436,7 +514,7 @@ public class ConditionTreeManagerTest {
 				ConditionTreeManager.evaluateStaticColumnAndRowKeyConditions(conditionTree, dataRecord);
 				throw new AssertionError("For Condition: "+testData.conditions +".......Expected HQLException but didn't received it.");
 			}catch (HQLException e) {
-				if(!e.getMessage().contains("Numeric comparison not allowed")){
+				if(!e.getMessage().contains("Numeric comparison (<,>,<=,>=) not allowed")){
 					throw new AssertionError("For Condition: "+testData.conditions +".......Expected HQLException having Numeric comparison message, but received HQLException with some other message. \n"+e);
 				}
 			} 
@@ -448,7 +526,7 @@ public class ConditionTreeManagerTest {
 	}
 	
 	public ConditionTree getConditionTreeFromSql(String query) throws HQLRunTimeException, IOException, HQLException, ColumnNotFoundException{
-		SqlBean sqlBean = exp.parseAndGetValidatedQuery(query);
+		SqlBean sqlBean = exp.parseAndGetValidatedQuery(query,targetJsonFieldsDataTypes);
 		return sqlBean.getConditionTreeCopy();
 	}
 	
@@ -504,6 +582,16 @@ public class ConditionTreeManagerTest {
 		dataRecord.addTupleToColumn("D", "inum", Tuple.dynamicColumn("D", "inum", "I0001", "", DynamicColumnType.STATIC_PREFIX, String.class));
 	}
 	
+	public void addJsonColumnsIntoDataRecord(DataRecord dataRecord) throws InvalidColumnException{
+		
+		dataRecord.addTupleToColumn("", "A", Tuple.staticColumn("", "A", "1",targetJsonFieldsDataTypes.get("A")));
+		dataRecord.addTupleToColumn("", "B", Tuple.staticColumn("", "B", "Y",targetJsonFieldsDataTypes.get("B")));
+		dataRecord.addTupleToColumn("", "C#C2#C21", Tuple.staticColumn("", "C#C2#C21", "5",targetJsonFieldsDataTypes.get("C#C2#C21")));
+		dataRecord.addTupleToColumn("", "C#C2#C22", Tuple.staticColumn("", "C#C2#C22", "100", targetJsonFieldsDataTypes.get("C#C2#C22")));
+		dataRecord.addTupleToColumn("", "C#C1", Tuple.staticColumn("", "C#C1", "10", targetJsonFieldsDataTypes.get("C#C1")));
+		
+	}
+	
 	
 }
 
@@ -511,7 +599,9 @@ class TestData{
 	String conditions;
 	Boolean expectedStaticResult;
 	boolean applyDynamic;
+	boolean applyJsonConditions;
 	Boolean expectedDynamicResult;
+	Boolean expectedJsonResult;
 	
 	Boolean staticEvaluationExceptionExpected;
 	Boolean dynamicEvaluationExceptionExpected;
@@ -530,6 +620,16 @@ class TestData{
 		this.expectedStaticResult = expectedStaticResult;
 		this.applyDynamic = true;
 		this.expectedDynamicResult = expectedDynamicResult;
+	}
+	
+	public TestData(String conditions, Boolean expectedStaticResult, Boolean expectedDynamicResult, Boolean expectedJsonResult) {
+		super();
+		this.conditions = conditions;
+		this.expectedStaticResult = expectedStaticResult;
+		this.applyDynamic = true;
+		this.expectedDynamicResult = expectedDynamicResult;
+		this.expectedJsonResult=expectedJsonResult;
+		this.applyJsonConditions=true;
 	}
 
 	public TestData(Boolean staticEvaluationExceptionExpected, Boolean dynamicEvaluationExceptionExpected) {

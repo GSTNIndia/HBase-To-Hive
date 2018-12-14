@@ -50,6 +50,16 @@ string '.' staticColumn
 | string '.' dynamicColumn 
 | staticColumn 
 | dynamicColumn
+| jsonColumn
+;
+
+jsonColumn:
+parent ('#' parent)*
+;
+
+parent:
+STRICTSTRING
+| NUMBER
 ;
 
 staticColumn:

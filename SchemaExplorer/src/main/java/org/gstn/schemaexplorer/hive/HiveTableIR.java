@@ -95,6 +95,10 @@ public class HiveTableIR implements Serializable {
 	public List<String> getSchemaColumnsForJsonValidation(String schemaName) {
 		return schemaColumnList.get(schemaName).getAllColumnNamesWithJson();
 	}
+	
+	public Map<String,Class> getSchemaJsonColumns(String schemaName) {
+		return schemaColumnList.get(schemaName).getSchemaJsonColumns();
+	}
 
 	public String getColumnDataType(String schemaName, String columnName) {
 		return schemaColumnList.get(schemaName).getColumnDataType(columnName);

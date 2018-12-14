@@ -142,6 +142,7 @@ public class HBaseSourceTableAdapter implements Serializable {
 		}
 
 		Boolean passed = applyRowKeyConditions(sqlQuery, rowKeyRecord);
+		
 		if (passed != null && !passed) {
 			return reconEntity;
 		}
@@ -689,6 +690,8 @@ public class HBaseSourceTableAdapter implements Serializable {
 		staticColumnDataRecord.addColumns(staticColumnsMap);
 
 		Boolean staticPassed = query.evaluateStaticConditions(staticColumnDataRecord);
+		
+		
 		if (staticPassed != null && !staticPassed) {
 			return reconEntity;
 		}
@@ -744,9 +747,10 @@ public class HBaseSourceTableAdapter implements Serializable {
 
 		if (dynamicPartToCfCnMap.isEmpty()) {
 
-			boolean dynamicPassed = query.evaluateDynamicConditions(staticColumnDataRecord);
+			Boolean dynamicPassed = query.evaluateDynamicConditions(staticColumnDataRecord);
+			
 
-			if (dynamicPassed) {
+			if (dynamicPassed==null || dynamicPassed) {
 
 				boolean selectedColumnFound = isSelectedColumnFound(staticColumnDataRecord, query);
 
@@ -755,7 +759,7 @@ public class HBaseSourceTableAdapter implements Serializable {
 					if (jsonColumnField != null) {
 						try {
 							ReconEntity reconEntity2 = passThroughJsonAdapterAndWrite(staticColumnDataRecord,
-									jsonColumnField, targetAdapter, reconColumnOpMap);
+									jsonColumnField, targetAdapter, reconColumnOpMap, query);
 							if (reconEntity2 != null) {
 								reconEntity.addReconEntity(reconEntity2);
 							}
@@ -763,7 +767,7 @@ public class HBaseSourceTableAdapter implements Serializable {
 							System.err.println(e.getMessage());
 							return null;
 						}
-					} else {
+					} else if(dynamicPassed!=null) {
 						DataRecord structuredDR = targetAdapter.writeRow(targetModel, staticColumnDataRecord);
 						reconEntity.add(structuredDR, reconColumnOpMap);
 					}
@@ -788,9 +792,9 @@ public class HBaseSourceTableAdapter implements Serializable {
 						dataRecForADynamicPart.addTupleToRowkey(tuple);
 					}
 
-					boolean dynamicPassed = query.evaluateDynamicConditions(dataRecForADynamicPart);
-
-					if (!dynamicPassed) {
+					Boolean dynamicPassed = query.evaluateDynamicConditions(dataRecForADynamicPart);
+					
+					if (dynamicPassed!=null && !dynamicPassed) {
 						// skipping writing row for this dynamic part
 						continue;
 					}
@@ -810,7 +814,7 @@ public class HBaseSourceTableAdapter implements Serializable {
 						if (jsonColumnField != null) {
 							try {
 								ReconEntity reconEntity2 = passThroughJsonAdapterAndWrite(outputDataRecordCopy,
-										jsonColumnField, targetAdapter, reconColumnOpMap);
+										jsonColumnField, targetAdapter, reconColumnOpMap, query);
 								if (reconEntity2 != null) {
 									reconEntity.addReconEntity(reconEntity2);
 								}
@@ -818,7 +822,7 @@ public class HBaseSourceTableAdapter implements Serializable {
 								System.err.println(e.getMessage());
 								return null;
 							}
-						} else {
+						} else if(dynamicPassed!=null){
 							DataRecord structuredDR = targetAdapter.writeRow(targetModel, outputDataRecordCopy);
 							reconEntity.add(structuredDR, reconColumnOpMap);
 						}
@@ -975,7 +979,7 @@ public class HBaseSourceTableAdapter implements Serializable {
 	}
 
 	private ReconEntity passThroughJsonAdapterAndWrite(DataRecord ipRecord, HBaseColumn column,
-			TargetAdapter targetAdapter, Map<String, List<String>> reconColumnOpMap) throws Exception {
+			TargetAdapter targetAdapter, Map<String, List<String>> reconColumnOpMap, SqlBean query) throws Exception {
 
 		String json;
 		ReconEntity reconEntity = new ReconEntity();
@@ -983,12 +987,18 @@ public class HBaseSourceTableAdapter implements Serializable {
 		if (column != null) {
 			if (ipRecord.isColumnNamePresent(column.getColumnNameWithoutDynamicComponent())) {
 				json = ipRecord.getColumnTupleValue(column.getColumnNameWithoutDynamicComponent());
-				// System.out.println("****** Json " + json);
+
 				if (json != null) {
 					List<DataRecord> dataRecords = JsonAdapter.flattenJson(ipRecord, json, targetModel);
 					for (DataRecord dataRecord : dataRecords) {
-						DataRecord structuredDR = targetAdapter.writeRow(targetModel, dataRecord);
-						reconEntity.add(structuredDR, reconColumnOpMap);
+						
+						boolean jsonConditionsPassed = query.evaluateJsonConditions(dataRecord);
+						
+						
+						if(jsonConditionsPassed){
+							DataRecord structuredDR = targetAdapter.writeRow(targetModel, dataRecord);
+							reconEntity.add(structuredDR, reconColumnOpMap);
+						}
 					}
 				}
 			}

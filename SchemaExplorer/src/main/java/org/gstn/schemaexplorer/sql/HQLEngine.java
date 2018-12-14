@@ -65,14 +65,16 @@ public class HQLEngine implements Serializable {
 	 * 
 	 * @param query
 	 *            - object which parses and stores information about query
+	 * @param targetJsonFields 
+	 * 			  - List of all target json column names
 	 * @throws HQLException
 	 *             if the query is invalid
 	 */
-	public void validateQueryForHbaseToHive(SqlBean query) throws HQLException {
+	public void validateQueryForHbaseToHive(SqlBean query, Map<String,Class> targetJsonFieldsDataTypes) throws HQLException {
 		try {
 			query.validateSchemaName(hBaseIR);
 
-			query.validateColumnList(hBaseIR, true);
+			query.validateColumnList(hBaseIR, true, targetJsonFieldsDataTypes);
 
 			// identify the type of SELECT query
 			// it can be a select based on row key prefix
@@ -82,7 +84,7 @@ public class HQLEngine implements Serializable {
 			// identify complete list of specific HBase columns to be fetched
 			query.generateColumnsForSelection(hBaseIR);
 
-			query.markRowKeyAndDynamicPartConditionsInTree(hBaseIR);
+			query.markConditionTypesInTree(hBaseIR,targetJsonFieldsDataTypes);
 
 		} catch (InvalidSchemaException e) {
 			throw new HQLException(e.getMessage());

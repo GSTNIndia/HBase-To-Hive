@@ -15,6 +15,8 @@
  ******************************************************************************/
 package org.gstn.hbasetohive.adapter;
 
+import java.util.Map;
+
 import org.gstn.schemaexplorer.entity.DataRecord;
 
 import com.google.gson.JsonElement;
@@ -45,4 +47,6 @@ public interface TargetModel {
 	DataRecord structureDeleteRecord(DataRecord deleteRecord) throws Exception;
 
 	boolean checkKey(String parentPath, String currentPath, String key, JsonElement value);
+	
+	public Map<String,Class> getSchemaJsonColumns();
 }

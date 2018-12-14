@@ -19,6 +19,8 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -27,7 +29,22 @@ import org.apache.hadoop.hbase.util.Bytes;
  *
  */
 public class DataTypeUtil {
-	
+	private final static Map<String,Class> hiveToJavaDataTypes;
+	static{
+		hiveToJavaDataTypes = new HashMap<>();
+		hiveToJavaDataTypes.put("boolean",Boolean.class);
+		hiveToJavaDataTypes.put("tinyint",Byte.class);
+		hiveToJavaDataTypes.put("smallint",Short.class);
+		hiveToJavaDataTypes.put("int",Integer.class);
+		hiveToJavaDataTypes.put("integer",Integer.class);
+		hiveToJavaDataTypes.put("bigint",Long.class);
+		hiveToJavaDataTypes.put("float",Float.class);
+		hiveToJavaDataTypes.put("double",Double.class);
+		hiveToJavaDataTypes.put("string",String.class);
+		hiveToJavaDataTypes.put("char",Character.class);
+		hiveToJavaDataTypes.put("varchar",String.class);
+		hiveToJavaDataTypes.put("decimal",BigDecimal.class);
+	}
 	public static String parseValue(byte[] value, Class<?> valueClass) {
         if(value == null || valueClass == null){
             return null;
@@ -159,6 +176,14 @@ public class DataTypeUtil {
             return (T)new BigDecimal(value);
         }else if(valueClass.equals(BigInteger.class)){
             return (T)new BigInteger(value);
+        }else if(valueClass.equals(Boolean.class)){
+            return (T)Boolean.valueOf(value);
+        }else if(valueClass.equals(Byte.class)){
+            return (T)Byte.valueOf(value);
+        }else if(valueClass.equals(Short.class)){
+            return (T)Short.valueOf(value);
+        }else if(valueClass.equals(Character.class) && value.length()==1){
+            return (T)Character.valueOf(value.charAt(0));
         }else if(valueClass.equals(SnappyCompressedType.class) ||
         			valueClass.equals(SnappyCompressedJSON.class) ||
         			valueClass.equals(JSON.class)){
@@ -168,4 +193,15 @@ public class DataTypeUtil {
             return (T)value;
         }
     }
+	
+	public static Class<?> getDataTypeClassForHiveDataType(String hiveDataType){
+		String hiveType = hiveDataType.toLowerCase();
+		
+		if (hiveToJavaDataTypes.containsKey(hiveType)) {
+			return hiveToJavaDataTypes.get(hiveType);
+		}else{
+			return String.class;
+		}
+		
+	}
 }

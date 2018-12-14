@@ -165,8 +165,9 @@ public class JsonAdapter {
 						if (dataRecordList != null) {
 							modifiedRecordList = true;
 							if (useParentKey == true) {
+								Class dataType = targetModel.getSchemaJsonColumns().get(currentPath);
 								addTupleIntoDataRecords(dataRecordList,
-										Tuple.rowkeyColumn(currentPath, value.getAsString()));
+										Tuple.staticColumn("", currentPath, value.getAsString(), dataType));
 							} else {
 								addTupleIntoDataRecords(dataRecordList, Tuple.rowkeyColumn(key, value.getAsString()));
 							}

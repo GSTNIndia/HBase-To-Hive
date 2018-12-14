@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.TreeMap;
 
@@ -275,6 +276,11 @@ public class HdfsFileExplorer implements TargetExplorer, Serializable {
 
 	public List<String> getSchemaColumnsForJsonValidation(String targetSchema) {
 		return hdfsIR.getSchemaColumnsForJsonValidation(targetSchema);
+	}
+	
+	@Override
+	public Map<String,Class> getSchemaJsonColumns(String targetSchema) {
+		return hdfsIR.getSchemaJsonColumns(targetSchema);
 	}
 
 	@Override
