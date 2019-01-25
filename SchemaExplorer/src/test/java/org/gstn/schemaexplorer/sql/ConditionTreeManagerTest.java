@@ -414,7 +414,7 @@ public class ConditionTreeManagerTest {
 		
 		//only pattern conditions: REGEXP and NOT REGEXP
 		tests = new ArrayList<>();
-		tests.add(new TestData(" stin REGEXP \"07.*\" ", true, getRowKeyStaticColumnsDataRecord1()));
+		tests.add(new TestData(" stin REGEXP '07.*' ", true, getRowKeyStaticColumnsDataRecord1()));
 		tests.add(new TestData(" stin REGEXP \"07.*\" ", false, getRowKeyStaticColumnsDataRecord2()));
 		tests.add(new TestData(" stin NOT REGEXP \"08.*\" ", true, getRowKeyStaticColumnsDataRecord1()));
 		tests.add(new TestData(" stin NOT REGEXP \"08.*\" ", false, getRowKeyStaticColumnsDataRecord2()));
