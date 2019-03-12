@@ -291,11 +291,12 @@ public class DataRecord {
 
 		for (Tuple tuple : tupleList) {
 			String val = tuple.getColumnValue();
-			if (val.equals("\\N")) {
+			/*if (val.equals("\\N")) {
 				sb.append(quoteChar).append(val).append(quoteChar).append(delimiter);
 			} else {
 				sb.append(quoteChar).append(StringEscapeUtils.escapeJson(val)).append(quoteChar).append(delimiter);
-			}
+			}*/
+			sb.append(quoteChar).append(val).append(quoteChar).append(delimiter);
 		}
 		//remove last delimiter
 		sb.delete(sb.length()-delimiter.length(), sb.length());
