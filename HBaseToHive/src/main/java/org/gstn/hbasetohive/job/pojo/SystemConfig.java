@@ -377,4 +377,14 @@ public class SystemConfig implements Serializable {
 		return false;
 	}
 
+	public String getTimestampTableHbaseZk() {
+		if(timestampTable!=null ){
+			String hbaseZk = timestampTable.getTimestampTableHbaseZk();
+			if(hbaseZk!=null && !hbaseZk.isEmpty()){
+				return hbaseZk;
+			}
+		}
+		return sourceHBaseZk;
+	}
+
 }

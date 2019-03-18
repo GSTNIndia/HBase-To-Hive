@@ -545,7 +545,7 @@ public class JobUtil implements Serializable {
 			}
 		} else if (loadType.equalsIgnoreCase("incremental")) {
 			MinTimestampAndJobType minTimestampAndJobType = TimeStampUtil.getMinTimestampAndJobType(sourceSchema,
-					targetSchema, sourceZK, systemConfig);
+					targetSchema, systemConfig);
 			minTimestamp = minTimestampAndJobType.getMinTimestamp();
 
 			incremental = minTimestampAndJobType.isIncremental();

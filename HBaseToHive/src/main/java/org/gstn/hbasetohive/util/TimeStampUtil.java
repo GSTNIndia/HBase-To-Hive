@@ -46,12 +46,12 @@ import org.gstn.hbasetohive.job.pojo.SystemConfig;
 public class TimeStampUtil {
 
 	public static MinTimestampAndJobType getMinTimestampAndJobType(String sourceSchema, String targetSchema,
-			String sourceZK, SystemConfig systemConfig) throws IOException {
+			SystemConfig systemConfig) throws IOException {
 
 		boolean minTimestampFound = false;
 
 		Configuration conf = HBaseConfiguration.create();
-		conf.set("hbase.zookeeper.quorum", sourceZK);
+		conf.set("hbase.zookeeper.quorum", systemConfig.getTimestampTableHbaseZk());
 
 		Connection hbaseConnection = ConnectionFactory.createConnection(conf);
 
@@ -77,11 +77,11 @@ public class TimeStampUtil {
 		return new MinTimestampAndJobType(minTimestampFound, minTimeStamp);
 	}
 
-	public static void writeTimestampToHBaseTable(String sourceSchema, String targetSchema, String sourceZK,
+	public static void writeTimestampToHBaseTable(String sourceSchema, String targetSchema,
 			SystemConfig systemConfig, long time) throws IOException {
 
 		Configuration conf = HBaseConfiguration.create();
-		conf.set("hbase.zookeeper.quorum", sourceZK);
+		conf.set("hbase.zookeeper.quorum", systemConfig.getTimestampTableHbaseZk());
 
 		Connection hbaseConnection = ConnectionFactory.createConnection(conf);
 
