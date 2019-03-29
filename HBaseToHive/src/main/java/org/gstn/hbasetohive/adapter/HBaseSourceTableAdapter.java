@@ -382,12 +382,25 @@ public class HBaseSourceTableAdapter implements Serializable {
 
 	private Scan getScanForMissingColumns(Scan orgScan, byte[] rowKey, List<Filter> columnFilters) throws IOException {
 		Scan missingColumnsScan = new Scan();
+		
+		//we are trying to fetch specific row from hbase so setting that row key as prefix so that start and stop row will be set automatically in the scan
+		//and also set caching to 1
+		missingColumnsScan.setRowPrefixFilter(rowKey);
+		missingColumnsScan.setCaching(1);
+		
 		Filter rowFilter = new RowFilter(CompareOp.EQUAL, new BinaryComparator(rowKey));
-		Filter columnFilterList = new FilterList(Operator.MUST_PASS_ONE, columnFilters);
-
-		FilterList filters = new FilterList(Operator.MUST_PASS_ALL, rowFilter, columnFilterList);
-
-		missingColumnsScan.setFilter(filters);
+		Filter columnFilterList = null;
+		if(columnFilters!=null && !columnFilters.isEmpty()){
+			columnFilterList = new FilterList(Operator.MUST_PASS_ONE, columnFilters);
+		}
+		
+		if(columnFilterList!=null){
+			FilterList filters = new FilterList(Operator.MUST_PASS_ALL, rowFilter, columnFilterList);
+			missingColumnsScan.setFilter(filters);
+		}else{
+			missingColumnsScan.setFilter(rowFilter);
+		}
+		
 		missingColumnsScan.setTimeRange(0, orgScan.getTimeRange().getMax());
 
 		return missingColumnsScan;
@@ -628,6 +641,14 @@ public class HBaseSourceTableAdapter implements Serializable {
 		
 		try {
 			Scan newScan = new Scan(orgScan);
+			
+			// we are trying to fetch specific row from hbase, so setting that
+			// row key as prefix so that start and stop row will be set
+			// automatically in the scan
+			// Also setting caching to 1
+			newScan.setRowPrefixFilter(rowKey);
+			newScan.setCaching(1);
+			
 			newScan.setRaw(false);
 			newScan.setTimeRange(0, orgScan.getTimeRange().getMax());
 			// Also add rowFilter in the new scan for this row.
