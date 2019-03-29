@@ -16,6 +16,7 @@
 package org.gstn.hbasetohive.util;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.NavigableMap;
 
 import org.apache.hadoop.conf.Configuration;
@@ -42,9 +43,13 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.gstn.hbasetohive.exception.ActiveClusterException;
 import org.gstn.hbasetohive.job.pojo.MinTimestampAndJobType;
 import org.gstn.hbasetohive.job.pojo.SystemConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TimeStampUtil {
 
+	private static Logger log = LoggerFactory.getLogger(TimeStampUtil.class);
+	
 	public static MinTimestampAndJobType getMinTimestampAndJobType(String sourceSchema, String targetSchema,
 			SystemConfig systemConfig) throws IOException {
 
@@ -74,6 +79,10 @@ public class TimeStampUtil {
 				minTimestampFound = true;
 			}
 		}
+		
+		if(log.isDebugEnabled())log.debug("isIncremental: "+minTimestampFound);
+		if(log.isDebugEnabled())log.debug("minTimeStamp: "+new Date(minTimeStamp));
+		
 		return new MinTimestampAndJobType(minTimestampFound, minTimeStamp);
 	}
 

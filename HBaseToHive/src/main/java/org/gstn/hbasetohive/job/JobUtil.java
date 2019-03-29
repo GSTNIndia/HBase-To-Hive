@@ -18,6 +18,7 @@ package org.gstn.hbasetohive.job;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -67,9 +68,13 @@ import org.gstn.schemaexplorer.hbase.RowkeyField;
 import org.gstn.schemaexplorer.hdfs.HdfsFileExplorer;
 import org.gstn.schemaexplorer.hive.HiveTableExplorer;
 import org.gstn.schemaexplorer.sql.SqlBean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
 public class JobUtil implements Serializable {
+	
+	private static Logger log = LoggerFactory.getLogger(JobUtil.class);
 
 	static JobOutput runJob(JavaSparkContext jsc, String query, String sourceSchema, String targetSchema, String appId,
 			String jobId, SystemConfig sc, JobConfig jc, HBaseTableExplorer hBaseExplorer, String targetSchemaPath,
@@ -561,6 +566,8 @@ public class JobUtil implements Serializable {
 				minTimestampForDeleteColumn = 0;
 			}
 
+			if(log.isDebugEnabled())log.debug("minTimestampForDeleteColumn: "+new Date(minTimestampForDeleteColumn));
+			
 			scan.setTimeRange(minTimestampForDeleteColumn, maxTimestamp);
 
 			if (incremental) {
