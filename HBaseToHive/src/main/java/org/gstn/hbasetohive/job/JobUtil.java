@@ -18,6 +18,7 @@ package org.gstn.hbasetohive.job;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -67,9 +68,13 @@ import org.gstn.schemaexplorer.hbase.RowkeyField;
 import org.gstn.schemaexplorer.hdfs.HdfsFileExplorer;
 import org.gstn.schemaexplorer.hive.HiveTableExplorer;
 import org.gstn.schemaexplorer.sql.SqlBean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
 public class JobUtil implements Serializable {
+	
+	private static Logger log = LoggerFactory.getLogger(JobUtil.class);
 
 	static JobOutput runJob(JavaSparkContext jsc, String query, String sourceSchema, String targetSchema, String appId,
 			String jobId, SystemConfig sc, JobConfig jc, HBaseTableExplorer hBaseExplorer, String targetSchemaPath,
@@ -79,8 +84,49 @@ public class JobUtil implements Serializable {
 
 		HdfsFileExplorer hdfsExplorer = null;
 		HiveTableExplorer hiveExplorer = null;
+		
+		String target = jc.getTarget();
+		List<String> targetFields = new ArrayList<>();
+		Map<String,Class> targetJsonFieldsWithDataType = new HashMap<>();
+		
+		if (target.equalsIgnoreCase("hive")) {
 
-		SqlBean sqlBean = hBaseExplorer.parseAndGetValidatedQuery(query);
+			hiveExplorer = new HiveTableExplorer(targetSchemaPath);
+
+			if (hiveExplorer.isSchemaDefined(targetSchema) == false) {
+				throw new ValidationException("Schema definition not found for target schema: " + targetSchema);
+			}
+
+			targetFields = hiveExplorer.getSchemaColumnsForJsonValidation(targetSchema);
+			//contains json column name from target n the format (parentpath#)column_name 
+			targetJsonFieldsWithDataType = hiveExplorer.getSchemaJsonColumns(targetSchema);
+					
+		}else if (target.equalsIgnoreCase("hbase")) {
+
+			if (hBaseExplorer.isSchemaDefined(targetSchema) == false) {
+				throw new ValidationException("Schema definition not found for source schema: " + targetSchema);
+			}
+
+			targetFields = hBaseExplorer.getAllFieldNames(targetSchema);
+			//contains json column name from target n the format (parentpath#)column_name
+			targetJsonFieldsWithDataType = hBaseExplorer.getSchemaJsonColumns(targetSchema);
+					
+		} else if (target.equalsIgnoreCase("hdfs")) {
+
+			hdfsExplorer = new HdfsFileExplorer(targetSchemaPath);
+
+			if (hdfsExplorer.isSchemaDefined(targetSchema) == false) {
+				throw new ValidationException("Schema definition not found for target schema: " + targetSchema);
+			}
+
+			targetFields = hdfsExplorer.getSchemaColumnsForJsonValidation(targetSchema);
+			//contains json column name from target n the format (parentpath#)column_name
+			targetJsonFieldsWithDataType = hdfsExplorer.getSchemaJsonColumns(targetSchema);
+		}else {
+			throw new ValidationException("No Target adapter defined for target " + target + ".....Exiting....");
+		}
+
+		SqlBean sqlBean = hBaseExplorer.parseAndGetValidatedQuery(query,targetJsonFieldsWithDataType);
 
 		Wrapper wrapper = createHBaseRdd(jsc, hBaseExplorer, sourceSchema, targetSchema, sqlBean, sc, jc, maxTimestamp,
 				loadType);
@@ -99,27 +145,19 @@ public class JobUtil implements Serializable {
 			}
 		}
 
-		List<String> targetFields = new ArrayList<>();
+		
 
-		JavaRDD<TargetAdapterWrapper> targetAdapterWrapperRDD;
+		JavaRDD<TargetAdapterWrapper> targetAdapterWrapperRDD=null;
 		JavaRDD<ReconEntity> reconRDD = null;
 
 		TargetModel targetModel;
 
 		String hdfsBasePath = sc.getHdfsBasePath();
-		String target = jc.getTarget();
+		
 
 		String hdfsFilePath = ConfigUtil.gethdfsFilePath(hdfsBasePath, target, targetSchema, appId, jobId);
 
 		if (target.equalsIgnoreCase("hive")) {
-
-			hiveExplorer = new HiveTableExplorer(targetSchemaPath);
-
-			if (hiveExplorer.isSchemaDefined(targetSchema) == false) {
-				throw new ValidationException("Schema definition not found for target schema: " + targetSchema);
-			}
-
-			targetFields = hiveExplorer.getSchemaColumnsForJsonValidation(targetSchema);
 
 			targetAdapterWrapperRDD = hBaseRDD
 					.mapPartitions(partition -> new HdfsTargetAdapter(sc.getDestHdfsUrl(), hdfsFilePath)
@@ -130,12 +168,6 @@ public class JobUtil implements Serializable {
 			// target is HBase
 		} else if (target.equalsIgnoreCase("hbase")) {
 
-			if (hBaseExplorer.isSchemaDefined(targetSchema) == false) {
-				throw new ValidationException("Schema definition not found for source schema: " + targetSchema);
-			}
-
-			targetFields = hBaseExplorer.getAllFieldNames(targetSchema);
-
 			targetAdapterWrapperRDD = hBaseRDD.mapPartitions(
 					partition -> new HBaseTargetAdapter(sc.getTargetHBaseZk(), targetSchema, hBaseExplorer)
 							.createTargetAdapterWrapper(partition),
@@ -144,15 +176,7 @@ public class JobUtil implements Serializable {
 			targetModel = new HBaseTargetModel(targetSchema, hBaseExplorer);
 
 			// target is HDFS
-		} else if (target.equalsIgnoreCase("hdfs")) {
-
-			hdfsExplorer = new HdfsFileExplorer(targetSchemaPath);
-
-			if (hdfsExplorer.isSchemaDefined(targetSchema) == false) {
-				throw new ValidationException("Schema definition not found for target schema: " + targetSchema);
-			}
-
-			targetFields = hdfsExplorer.getSchemaColumnsForJsonValidation(targetSchema);
+		} else {
 
 			targetAdapterWrapperRDD = hBaseRDD
 					.mapPartitions(partition -> new HdfsTargetAdapter(sc.getDestHdfsUrl(), hdfsFilePath)
@@ -160,8 +184,6 @@ public class JobUtil implements Serializable {
 
 			targetModel = new HdfsTargetModel(targetSchema, hdfsExplorer);
 
-		} else {
-			throw new ValidationException("No Target adapter defined for target " + target + ".....Exiting....");
 		}
 
 		List<String> sourceFields = hBaseExplorer.getAllFieldNames(sourceSchema);
@@ -528,7 +550,7 @@ public class JobUtil implements Serializable {
 			}
 		} else if (loadType.equalsIgnoreCase("incremental")) {
 			MinTimestampAndJobType minTimestampAndJobType = TimeStampUtil.getMinTimestampAndJobType(sourceSchema,
-					targetSchema, sourceZK, systemConfig);
+					targetSchema, systemConfig);
 			minTimestamp = minTimestampAndJobType.getMinTimestamp();
 
 			incremental = minTimestampAndJobType.isIncremental();
@@ -544,6 +566,8 @@ public class JobUtil implements Serializable {
 				minTimestampForDeleteColumn = 0;
 			}
 
+			if(log.isDebugEnabled())log.debug("minTimestampForDeleteColumn: "+new Date(minTimestampForDeleteColumn));
+			
 			scan.setTimeRange(minTimestampForDeleteColumn, maxTimestamp);
 
 			if (incremental) {

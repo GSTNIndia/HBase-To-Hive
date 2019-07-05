@@ -18,6 +18,7 @@ package org.gstn.hbasetohive.adapter;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.gstn.hbasetohive.util.FormatDateUtil;
 import org.gstn.schemaexplorer.entity.DataRecord;
@@ -85,5 +86,10 @@ public class HdfsTargetModel implements TargetModel, Serializable {
 	public DataRecord structureDeleteRecord(DataRecord deleteRecord) throws Exception {
 		//no restructring of delete record required for Hdfs, so returning as it is 
 		return deleteRecord;
+	}
+
+	@Override
+	public Map<String, Class> getSchemaJsonColumns() {
+		return targetExplorer.getSchemaJsonColumns(targetSchema);
 	}
 }

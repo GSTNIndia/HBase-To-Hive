@@ -114,7 +114,7 @@ public class TableLoadRunner {
 			}
 
 			if (writeTimestampFlag == true) {
-				writeTimeStampToHBase(systemConfig.getSourceHBaseZk(), systemConfig, jobConfig, maxTimestamp);
+				writeTimeStampToHBase(systemConfig, jobConfig, maxTimestamp);
 			}
 
 			printJobDetails(jobOutputList, reconMap, systemConfig, jobConfig);
@@ -229,14 +229,14 @@ public class TableLoadRunner {
 		}
 	}
 
-	private static void writeTimeStampToHBase(String sourceZK, SystemConfig systemConfig, JobConfig jobConfig,
+	private static void writeTimeStampToHBase(SystemConfig systemConfig, JobConfig jobConfig,
 			long maxTimestamp) throws IOException {
 
 		for (int i = 0; i < jobConfig.getNumberOfJobs(); i++) {
 			String sourceSchema = jobConfig.getSourceSchemaName(i);
 			String targetSchema = jobConfig.getTargetSchemaName(i);
 
-			TimeStampUtil.writeTimestampToHBaseTable(sourceSchema, targetSchema, sourceZK, systemConfig, maxTimestamp);
+			TimeStampUtil.writeTimestampToHBaseTable(sourceSchema, targetSchema, systemConfig, maxTimestamp);
 		}
 	}
 

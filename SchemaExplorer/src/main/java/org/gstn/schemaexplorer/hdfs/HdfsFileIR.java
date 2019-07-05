@@ -92,7 +92,13 @@ public class HdfsFileIR implements Serializable {
 	public ArrayList<String> getSchemaColumnsForJsonValidation(String schemaName) {
 		return schemaColumnList.get(schemaName).getAllColumnNamesWithJson();
 	}
-
+	
+	
+	public Map<String,Class> getSchemaJsonColumns(String schemaName) {
+		return schemaColumnList.get(schemaName).getSchemaJsonColumns();
+	}
+	
+	
 	/**
 	 * This method returns the default value of a given column present in a
 	 * given hdfs schema.

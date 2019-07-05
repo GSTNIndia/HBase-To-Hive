@@ -16,6 +16,7 @@
 package org.gstn.schemaexplorer.target;
 
 import java.util.List;
+import java.util.Map;
 
 import com.google.gson.JsonElement;
 
@@ -33,4 +34,6 @@ public interface TargetExplorer {
 	public boolean isJsonColumn(String schemaName, String columnName);
 
 	public boolean checkKey(String targetSchema, String parentPath, String currentPath, String key, JsonElement value);
+	
+	public Map<String, Class> getSchemaJsonColumns(String targetSchema);
 }

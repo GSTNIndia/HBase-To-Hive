@@ -95,6 +95,10 @@ public class HiveTableIR implements Serializable {
 	public List<String> getSchemaColumnsForJsonValidation(String schemaName) {
 		return schemaColumnList.get(schemaName).getAllColumnNamesWithJson();
 	}
+	
+	public Map<String,Class> getSchemaJsonColumns(String schemaName) {
+		return schemaColumnList.get(schemaName).getSchemaJsonColumns();
+	}
 
 	public String getColumnDataType(String schemaName, String columnName) {
 		return schemaColumnList.get(schemaName).getColumnDataType(columnName);
@@ -275,11 +279,11 @@ public class HiveTableIR implements Serializable {
 		StringBuilder whereCondition = conditions[1];
 		
 		ddl.append("INSERT INTO "+newParquetTable+" \n");
-		
+
 		if(newParquetWrapper.partitionColumnNamesCSV.length()>0){
 			ddl.append(" PARTITION " + newParquetWrapper.partitionColumnNamesCSV+" \n");
 		}
-		
+
 		ddl.append("SELECT "+qualifiedParquetColumnNames +" \n");
 		ddl.append("FROM "+parquetTable + " "+ parquetTableQualifier+" \n");
 		ddl.append("LEFT OUTER JOIN "+deleteDataTableName +" "+deleteTableQualifier+" \n");
@@ -287,21 +291,9 @@ public class HiveTableIR implements Serializable {
 		ddl.append("( "+joinCondition+" ) \n");
 		ddl.append("WHERE \n");
 		ddl.append("( "+whereCondition+" ); \n\n");
-		
+
 		//Drop parquet table
 		ddl.append("DROP TABLE "+parquetTable+"; \n\n");
-
-		ddl.append("INSERT INTO " + newParquetTable + " \n");
-		ddl.append("SELECT " + qualifiedParquetColumnNames + " \n");
-		ddl.append("FROM " + parquetTable + " " + parquetTableQualifier + " \n");
-		ddl.append("LEFT OUTER JOIN " + deleteDataTableName + " " + deleteTableQualifier + " \n");
-		ddl.append("ON \n");
-		ddl.append("( " + joinCondition + " ) \n");
-		ddl.append("WHERE \n");
-		ddl.append("( " + whereCondition + " ); \n\n");
-
-		// Drop parquet table
-		ddl.append("DROP TABLE " + parquetTable + "; \n\n");
 
 		// Rename new parquest table to original parquest table name
 		ddl.append("ALTER TABLE " + newParquetTable + " RENAME TO " + parquetTable + "; \n\n");

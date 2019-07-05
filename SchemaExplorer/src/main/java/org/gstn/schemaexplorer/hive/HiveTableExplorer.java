@@ -235,6 +235,11 @@ public class HiveTableExplorer implements TargetExplorer, Serializable {
 	public List<String> getSchemaColumnsForJsonValidation(String targetSchema) {
 		return hiveIR.getSchemaColumnsForJsonValidation(targetSchema);
 	}
+	
+	@Override
+	public Map<String,Class> getSchemaJsonColumns(String targetSchema) {
+		return hiveIR.getSchemaJsonColumns(targetSchema);
+	}
 
 	public void createHiveScript(String targetSchema, String hdfsUrl, String hdfsFilePath, String hdfsPath,
 			Map<String, String> sparkConfMap, String jobId, HBaseTableExplorer hBaseTableExplorer, String sourceSchemaName,

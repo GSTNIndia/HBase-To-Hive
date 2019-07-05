@@ -27,7 +27,10 @@ import java.util.Set;
 
 import org.gstn.schemaexplorer.entity.DataRecord;
 import org.gstn.schemaexplorer.entity.Tuple;
+import org.gstn.schemaexplorer.exception.ColumnFamilyNotFoundException;
 import org.gstn.schemaexplorer.exception.ColumnNotFoundException;
+import org.gstn.schemaexplorer.exception.InvalidColumnException;
+import org.gstn.schemaexplorer.exception.InvalidJSONException;
 import org.gstn.schemaexplorer.hdfs.HdfsFileExplorer;
 import org.junit.Assert;
 import org.junit.Test;
@@ -357,4 +360,17 @@ public class JsonAdapterTest extends TestCase {
 		return true;
 	}
 
+	//main method for quick testing
+	public static void main(String[] args) throws InvalidJSONException, ColumnFamilyNotFoundException, InvalidColumnException {
+		
+		HdfsFileExplorer hdfsExplorer = new HdfsFileExplorer("./src/test/resources/JsonAdapterTest.schema");
+		
+		TargetModel target = new HdfsTargetModel("test8", hdfsExplorer);
+		
+		//String json = "{\"A\":\"A1\",\"B\":{ \"C\":{\"C1\":\"C1val\",\"C2\":\"C2val\"} ,\"D\":{\"D1\":\"D1val\",\"D2\":\"D2val\"}}}";
+		
+		String json = "{\"A\":\"A1\",\"B\":{ \"C\":{\"C1\":\"C1val\",\"C2\":\"C2val\"} }}";
+		
+		System.out.println(JsonAdapter.flattenJson(new DataRecord(), json, target));
+	}
 }

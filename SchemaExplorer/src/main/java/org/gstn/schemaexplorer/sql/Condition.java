@@ -16,6 +16,9 @@
 package org.gstn.schemaexplorer.sql;
 
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 import org.gstn.schemaexplorer.exception.HQLException;
 import org.gstn.schemaexplorer.exception.InvalidSchemaException;
@@ -40,7 +43,14 @@ public class Condition implements Serializable {
 	private boolean rowKeyCondition = false;
 	// Indicates whether this condition is based on dynamic part
 	private boolean dynamicPartCondition = false;
-
+	// Indicates whether this condition is pattern based (i.e. REGEXP or NOT REGEXP)
+	private Boolean patternCondition = null;
+	//stores the compiled regex pattern if the condition is patternCondition
+	private Pattern pattern = null;
+	// Indicates whether this condition is json field condition
+	private boolean jsonFieldCondition = false;
+	
+	
 	public Condition() {
 		columnFamily = "";
 		columnName = "";
@@ -88,19 +98,29 @@ public class Condition implements Serializable {
 	 *            - schema against which condition is to be validated
 	 * @param hBaseIR
 	 *            - object which stores information about all schemas
+	 * @param targetJsonFields 
+	 * 			  - List of all target json column names
 	 * @return true if condition is valid, false otherwise
 	 * @throws HQLException
 	 * @throws InvalidSchemaException
 	 */
-	public boolean validateCondition(String schema, HBaseTableIR hBaseIR) throws HQLException {
+	public boolean validateCondition(String schema, HBaseTableIR hBaseIR, Map<String,Class> targetJsonFieldsDataTypes) throws HQLException {
 
-		// column needs to be present in data or in rowkey or as a dynamic
-		// component
+		// column needs to be present in rowkey, static columns, dynamic columns, dynamic 
+		// components or should be a json field
 		if (!hBaseIR.isColumnPresentInData(schema, columnFamily, columnName)
 				&& !hBaseIR.isColumnPresentInRowkey(schema, columnName)
-				&& !hBaseIR.isColumnPresentInDynamicParts(schema, columnName)) {
-			throw new HQLException(columnFamily + "." + columnName
-					+ " cannot be used in condition, since it is not present in table schema."
+				&& !hBaseIR.isColumnPresentInDynamicParts(schema, columnName)
+				&& !(targetJsonFieldsDataTypes!=null && targetJsonFieldsDataTypes.containsKey(columnName)) ) {
+			String cfCn;
+			if(columnFamily!=null && !columnFamily.isEmpty()){
+				cfCn=columnFamily + "." + columnName;
+			}else{
+				cfCn=columnName;
+			}
+			
+			throw new HQLException(cfCn
+					+ " cannot be used in condition, since it is not present in table schema or in target json fields."
 					+ " (Did you forget the column family?)");
 		}
 
@@ -108,10 +128,20 @@ public class Condition implements Serializable {
 		if (conditionalOperator.equals("<") || conditionalOperator.equals(">") || conditionalOperator.equals("<=")
 				|| conditionalOperator.equals(">=")) {
 			try {
-				if (hBaseIR.getColumnDataType(schema, columnFamily, columnName).equals("string")) {
-					throw new HQLException(
-							"Numeric comparison not allowed on string column " + columnFamily + "." + columnName);
+				
+				//check if it's condition based on json field
+				if(targetJsonFieldsDataTypes!=null && targetJsonFieldsDataTypes.containsKey(columnName)){
+					if (targetJsonFieldsDataTypes.get(columnName).equals(String.class)) {
+						throw new HQLException(
+								"Numeric comparison (<,>,<=,>=) not allowed on non numeric column " + columnName);
+					}
+				}else{
+					if (hBaseIR.getColumnDataType(schema, columnFamily, columnName).equals("string")) {
+						throw new HQLException(
+								"Numeric comparison (<,>,<=,>=) not allowed on string column " + columnFamily + "." + columnName);
+					}
 				}
+				
 			} catch (InvalidSchemaException e) {
 				throw new HQLException(e.getMessage());
 			}
@@ -176,7 +206,10 @@ public class Condition implements Serializable {
 		conditionCopy.evaluated = evaluated;
 		conditionCopy.rowKeyCondition = rowKeyCondition;
 		conditionCopy.dynamicPartCondition = dynamicPartCondition;
-
+		conditionCopy.patternCondition = patternCondition;
+		conditionCopy.pattern = pattern;
+		conditionCopy.jsonFieldCondition = jsonFieldCondition;
+		
 		// we modify this so need to create new object
 		if (result != null)
 			conditionCopy.result = new Boolean(result);
@@ -187,8 +220,32 @@ public class Condition implements Serializable {
 	public boolean isDynamicPartCondition() {
 		return dynamicPartCondition;
 	}
-
+	
+	public boolean isPatternCondition() {
+		if(patternCondition==null){
+			patternCondition=Arrays.asList("REGEXP","NOT REGEXP").contains(conditionalOperator);
+		}
+		
+		return patternCondition;
+	}
+	
+	public Pattern getPattern(){
+		if(pattern==null){
+			pattern = Pattern.compile(value);
+		}
+		return pattern;
+		
+	}
+	
 	public void setDynamicPartCondition(boolean dynamicPartCondition) {
 		this.dynamicPartCondition = dynamicPartCondition;
+	}
+
+	public boolean isJsonFieldCondition() {
+		return jsonFieldCondition;
+	}
+
+	public void setJsonFieldCondition(boolean jsonFieldCondition) {
+		this.jsonFieldCondition = jsonFieldCondition;
 	}
 }

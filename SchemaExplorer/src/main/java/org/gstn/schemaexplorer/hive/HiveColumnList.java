@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.gstn.schemaexplorer.exception.SchemaValidationException;
+import org.gstn.schemaexplorer.util.DataTypeUtil;
 
 import com.google.gson.JsonElement;
 
@@ -72,6 +73,17 @@ public class HiveColumnList implements Serializable {
 					columnNames.add("JSON." + column.getColumnName());
 				else
 					columnNames.add(column.getColumnName());
+			}
+		}
+		return columnNames;
+	}
+	
+	public Map<String,Class> getSchemaJsonColumns() {
+		Map<String,Class> columnNames = new HashMap<>();
+		for (String parentPath : columnList.keySet()) {
+			for (HiveColumn column : columnList.get(parentPath)) {
+				if (column.isJsonField())
+					columnNames.put(column.getColumnName(),DataTypeUtil.getDataTypeClassForHiveDataType(column.getColumnDataType()));
 			}
 		}
 		return columnNames;

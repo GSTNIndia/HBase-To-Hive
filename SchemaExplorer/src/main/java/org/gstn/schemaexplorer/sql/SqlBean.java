@@ -95,6 +95,7 @@ public class SqlBean implements Serializable {
 	private ConditionTree conditionTree;
 
 	private ConditionTree conditionTreeCopy;
+	private ConditionTree conditionTreeForDynamic;
 
 	private Logger logger;
 
@@ -220,11 +221,13 @@ public class SqlBean implements Serializable {
 	 *            defined in schema file
 	 * @param whereClauseOptional
 	 *            - flag to specify if conditions are optional
+	 * @param targetJsonFields 	
+	 * 			  - List of all target json column names
 	 * @return true if all the conditions are valid
 	 * @throws HQLException
 	 *             if a condition is invalid
 	 */
-	public boolean validateColumnList(HBaseTableIR hBaseIR, boolean whereClauseOptional) throws HQLException {
+	public boolean validateColumnList(HBaseTableIR hBaseIR, boolean whereClauseOptional, Map<String,Class> targetJsonFieldsDataTypes) throws HQLException {
 		String schema = getSchemaName();
 
 		// First check if we have at least one condition specified
@@ -237,7 +240,7 @@ public class SqlBean implements Serializable {
 		 * appropriate e.g. inequalities must be used only on numeric data types
 		 */
 		for (Condition cond : conditionList) {
-			cond.validateCondition(schema, hBaseIR);
+			cond.validateCondition(schema, hBaseIR, targetJsonFieldsDataTypes);
 		}
 		return true;
 	}
@@ -580,59 +583,66 @@ public class SqlBean implements Serializable {
 
 	// Iterate over ConditionsTree and mark row key and dynamic part conditions
 	/**
-	 * This method iterates over ConditionsTree and marks row key and dynamic
-	 * part conditions
+	 * This method iterates over ConditionsTree and marks row key ,dynamic
+	 * part conditions and json field conditions
 	 * 
 	 * @param hBaseIR
 	 *            - object which stores information related to all the schemas
 	 *            defined in schema file
+	 * @param targetJsonFields 
+	 * 			  - List of all target json column names
 	 */
-	public void markRowKeyAndDynamicPartConditionsInTree(HBaseTableIR hBaseIR) {
-		markRowKeyAndDynamicPartConditionsInTree(hBaseIR, conditionTree);
+	public void markConditionTypesInTree(HBaseTableIR hBaseIR, Map<String,Class> targetJsonFieldsDataTypes) {
+		markConditionTypesInTree(hBaseIR, conditionTree, targetJsonFieldsDataTypes);
 	}
 
 	/**
-	 * This method iterates over ConditionsTree and marks row key and dynamic
-	 * part conditions
+	 * This method iterates over ConditionsTree and marks row key ,dynamic
+	 * part conditions and json field conditions
 	 * 
 	 * @param hBaseIR
 	 *            - object which stores information related to all the schemas
 	 *            defined in schema file
 	 * @param conditionTree
 	 *            - collection of all the conditions
+	 * @param targetJsonFields 
+	 * 			  - List of all target json column names
 	 */
-	private void markRowKeyAndDynamicPartConditionsInTree(HBaseTableIR hBaseIR, ConditionTree conditionTree) {
+	private void markConditionTypesInTree(HBaseTableIR hBaseIR, ConditionTree conditionTree, Map<String,Class> targetJsonFieldsDataTypes) {
 		List<Condition> conditionList = conditionTree.getConditions();
 		for (Condition condition : conditionList) {
 			if (condition instanceof ConditionTree) {
-				markRowKeyAndDynamicPartConditionsInTree(hBaseIR, (ConditionTree) condition);
+				markConditionTypesInTree(hBaseIR, (ConditionTree) condition, targetJsonFieldsDataTypes);
 			} else {
-				checkAndMarkConditionAsRowKeyOrDyanmicPart(hBaseIR, condition);
+				markConditionTypes(hBaseIR, condition, targetJsonFieldsDataTypes);
 			}
 		}
 	}
 
 	/**
 	 * This method checks if the condition is for a row key field or dynamic
-	 * part component
+	 * part component or json field
 	 * 
 	 * @param hBaseIR
 	 *            - object which stores information related to all the schemas
 	 *            defined in schema file
 	 * @param condition
 	 *            - condition in the query
+	 * @param targetJsonFields 
+	 * 			  - List of all target json column names
 	 */
-	private void checkAndMarkConditionAsRowKeyOrDyanmicPart(HBaseTableIR hBaseIR, Condition condition) {
+	private void markConditionTypes(HBaseTableIR hBaseIR, Condition condition, Map<String,Class> targetJsonFieldsDataTypes) {
 		String columnName = condition.getColumnName();
 		boolean result = hBaseIR.isColumnPresentInRowkey(schemaName, columnName);
 
 		if (result) {
 			condition.setRowKeyCondition(result);
-		} else {
-			// check if condition is based on dynamic part
-			result = hBaseIR.isColumnPresentInDynamicParts(schemaName, columnName);
-
-			condition.setDynamicPartCondition(result);
+		} else if(hBaseIR.isColumnPresentInDynamicParts(schemaName, columnName)){
+			//condition is based on dynamic part
+			condition.setDynamicPartCondition(true);
+		}else if(targetJsonFieldsDataTypes!=null && targetJsonFieldsDataTypes.containsKey(columnName)){
+			//condition is based on json field names
+			condition.setJsonFieldCondition(true);
 		}
 	}
 
@@ -670,13 +680,27 @@ public class SqlBean implements Serializable {
 		return ConditionTreeManager.evaluateStaticColumnAndRowKeyConditions(conditionTreeCopy, dataRecord);
 	}
 
-	public boolean evaluateDynamicConditions(DataRecord dataRecord) throws Exception {
-		// get a copy of ConditionTree to apply the dynamic conditions and store
+	public Boolean evaluateDynamicConditions(DataRecord dataRecord) throws Exception {
+		// get a copy of conditionTreeCopy to apply the dynamic conditions and store
 		// result of evaluation in the copy
-		ConditionTree conditionTreeForDynamic = conditionTreeCopy.getDeepCopy();
+		conditionTreeForDynamic = conditionTreeCopy.getDeepCopy();
 
 		// apply dynamic column and dynamic part conditions from query
 		return ConditionTreeManager.evaluateDyanmicColumnConditions(conditionTreeForDynamic, dataRecord);
+	}
+	
+	public boolean evaluateJsonConditions(DataRecord dataRecord) throws Exception {
+		// get a copy of conditionTreeCopy/conditionTreeForDynamic to apply the json conditions and store
+		// result of evaluation in the copy
+		ConditionTree conditionTreeForJson;
+		if(conditionTreeForDynamic!=null){
+			conditionTreeForJson = conditionTreeForDynamic.getDeepCopy();
+		}else{
+			conditionTreeForJson = conditionTreeCopy.getDeepCopy();
+		}
+		
+		// apply dynamic column and dynamic part conditions from query
+		return ConditionTreeManager.evaluateJsonConditions(conditionTreeForJson, dataRecord);
 	}
 
 	@Override
@@ -724,7 +748,7 @@ public class SqlBean implements Serializable {
 				throws ColumnNotFoundException {
 
 			for (Condition condition : getConditonsFromConditionTree()) {
-				if (!condition.isRowKeyCondition() && !condition.isDynamicPartCondition()) {
+				if (!condition.isRowKeyCondition() && !condition.isDynamicPartCondition() && !condition.isJsonFieldCondition()) {
 					// column condition: static or dynamic
 					String cn = condition.getColumnName();
 					String cf = condition.getColumnFamily();

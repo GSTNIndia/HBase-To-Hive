@@ -50,6 +50,16 @@ string '.' staticColumn
 | string '.' dynamicColumn 
 | staticColumn 
 | dynamicColumn
+| jsonColumn
+;
+
+jsonColumn:
+parent ('#' parent)*
+;
+
+parent:
+STRICTSTRING
+| NUMBER
 ;
 
 staticColumn:
@@ -89,7 +99,7 @@ column  conditionalOperator  STRING_VALUE
 ;
 
 conditionalOperator:
-'='|'<='|'>='|'<'|'>'|'<>'|'!='
+'='|'<='|'>='|'<'|'>'|'<>'|'!='|'REGEXP'|'NOT REGEXP'
 ;
 
 operator:

@@ -72,6 +72,8 @@ import org.gstn.schemaexplorer.sql.ConditionTree;
 import org.gstn.schemaexplorer.sql.ConditionTreeManager;
 import org.gstn.schemaexplorer.sql.SqlBean;
 import org.gstn.schemaexplorer.util.DataTypeUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import scala.Tuple2;
 
@@ -88,6 +90,8 @@ public class HBaseSourceTableAdapter implements Serializable {
 	private TargetModel targetModel;
 	private String SKIP = "SKIP";
 
+	private Logger log = LoggerFactory.getLogger(this.getClass().getCanonicalName());
+	
 	/**
 	 * Constructor
 	 * 
@@ -142,20 +146,26 @@ public class HBaseSourceTableAdapter implements Serializable {
 		}
 
 		Boolean passed = applyRowKeyConditions(sqlQuery, rowKeyRecord);
+		
 		if (passed != null && !passed) {
 			return reconEntity;
 		}
-
+		
+		if(log.isDebugEnabled())log.debug("Row key conditions passed!");
+		
 		boolean deletionAddedForAllRows = false;
 
 		// check if the hbase scan result has deleteFamily marker for selected
 		// families
 		DeleteFamilyMarkerInfo deleteFamilyMarkerInfo = processDeleteFamilyMarkers(result, sqlQuery, minTimestamp);
 
+		if(log.isDebugEnabled())log.debug("after processDeleteFamilyMarkers");
+		
 		boolean reprocess = false;
 		List<DataRecord> deleteRowList = new ArrayList<>();
 
 		if (deleteFamilyMarkerInfo.isDeleteFamilyMarkerFound()) {
+			if(log.isDebugEnabled())log.debug("DeleteFamilyMarkerFound");
 			// add entry in the deleteRowList
 			addIntoDeleteRowList(deleteRowList, rowKeyRecord, null);
 
@@ -172,18 +182,31 @@ public class HBaseSourceTableAdapter implements Serializable {
 		}
 
 		if (!reprocess) {
+			if(log.isDebugEnabled())log.debug("before processDeleteFamilyMarkers");
+			
 			ProcessMutationResult processMutationResult = processMutationsOtherThanDeleteFamily(result,
 					deleteFamilyMarkerInfo, sqlQuery, deletionAddedForAllRows, rowKeyRecord, deleteRowList, orgScan,
 					minTimestamp, systemConfig);
+			
+			if(log.isDebugEnabled())log.debug("after processMutationsOtherThanDeleteFamily");
+			
 			if (processMutationResult.isReprocessRow()) {
+				if(log.isDebugEnabled())log.debug("processMutationResult.isReprocessRow()");
 				if (!deletionAddedForAllRows) {
 					deleteRowList.clear();
+					if(log.isDebugEnabled())log.debug("before addIntoDeleteRowList");
+					
 					addIntoDeleteRowList(deleteRowList, rowKeyRecord, null);
+					
+					if(log.isDebugEnabled())log.debug("after addIntoDeleteRowList");
+					
 					deletionAddedForAllRows = true;
 				}
+				if(log.isDebugEnabled())log.debug("before reprocessThisRow");
 				reconEntity = reprocessThisRow(rowKey, targetAdapter, sqlQuery, jsonColumnField, reconColumnOpMap,
 						orgScan, systemConfig);
 			} else {
+				if(log.isDebugEnabled())log.debug("calling processResultData");
 				reconEntity = processResultData(processMutationResult.getNoVersionMap(), rowKey, targetAdapter,
 						sqlQuery, jsonColumnField, reconColumnOpMap);
 			}
@@ -201,12 +224,17 @@ public class HBaseSourceTableAdapter implements Serializable {
 			SystemConfig systemConfig)
 			throws IOException, ParseException, InvalidColumnException, InvalidRecordTypeExcepton {
 
+		if(log.isDebugEnabled())log.debug("Entering processMutationsOtherThanDeleteFamily");
+		
 		// map of groupid (null for static or value of <X> for dynamic) against
 		// mutations for that group
 		MutationsInfo mutationsInfo = filterAndGroupMutations(result, deleteFamilyMarkerInfo, sqlQuery, minTimestamp);
 
+		if(log.isDebugEnabled())log.debug("after filterAndGroupMutations");
+		
 		// check if there is atleast one mutation was found
 		if (mutationsInfo.getMutations().isEmpty()) {
+			if(log.isDebugEnabled())log.debug("mutationsInfo.getMutations().isEmpty()");
 			return new ProcessMutationResult(null, false);
 		}
 
@@ -219,11 +247,14 @@ public class HBaseSourceTableAdapter implements Serializable {
 		if (sqlQuery.isDynamicColumnsInSelect() && sqlQuery.isStaticColumnsInWhere()
 				&& mutationsInfo.isMutationForStaticPresent()) {
 			// need to reprocess entire row
+			if(log.isDebugEnabled())log.debug("need to reprocess entire row");
 			return new ProcessMutationResult(null, true);
 		}
 
 		if (!deletionAddedForAllRows) {
+			if(log.isDebugEnabled())log.debug("calling addDeleteionsForMutations");
 			addDeleteionsForMutations(mutationsInfo, rowKeyRecord, deleteRowList);
+			if(log.isDebugEnabled())log.debug("after addDeleteionsForMutations");
 		}
 
 		Result missingColumnsResult = null;
@@ -232,7 +263,9 @@ public class HBaseSourceTableAdapter implements Serializable {
 		// we don't need to look for missing columns as they would be missing
 		// from source row as well.
 		if (!deleteFamilyMarkerInfo.isDeleteFamilyMarkerFoundForAll()) {
+			if(log.isDebugEnabled())log.debug("before getMissingColumns");
 			missingColumnsResult = getMissingColumns(mutationsInfo, orgScan, sqlQuery, result.getRow(), systemConfig);
+			if(log.isDebugEnabled())log.debug("after getMissingColumns");
 		}
 
 		NavigableMap<byte[], NavigableMap<byte[], byte[]>> noVersionMap;
@@ -243,7 +276,9 @@ public class HBaseSourceTableAdapter implements Serializable {
 		}
 
 		// add cells from put mutations into missingColumnsResult
+		if(log.isDebugEnabled())log.debug("before addColumnsFromPutMutations");
 		addColumnsFromPutMutations(noVersionMap, mutationsInfo);
+		if(log.isDebugEnabled())log.debug("after addColumnsFromPutMutations");
 
 		return new ProcessMutationResult(noVersionMap, false);
 	}
@@ -286,6 +321,8 @@ public class HBaseSourceTableAdapter implements Serializable {
 	private Result getMissingColumns(MutationsInfo mutationsInfo, Scan orgScan, SqlBean sqlQuery, byte[] rowKey,
 			SystemConfig systemConfig) throws IOException {
 
+		if(log.isDebugEnabled())log.debug("Entering getMissingColumns for row key: "+Bytes.toString(rowKey));
+		
 		List<Filter> filterList = new ArrayList<>();
 
 		for (Entry<String, MutationsForAGroup> entry : mutationsInfo.getMutations().entrySet()) {
@@ -303,15 +340,18 @@ public class HBaseSourceTableAdapter implements Serializable {
 		if (!filterList.isEmpty()) {
 			Scan missingColumnsScan = getScanForMissingColumns(orgScan, rowKey, filterList);
 
+			if(log.isDebugEnabled())log.debug("missingColumnsScan.getStartRow(): "+Bytes.toString(missingColumnsScan.getStartRow())+" and first byte is "+missingColumnsScan.getStartRow()[0]);
+			
 			ResultScanner resultScanner = fireScan(missingColumnsScan, systemConfig);
 
 			if (resultScanner != null) {
-				for (Result missingResult : resultScanner) {
-					if (missingResult != null && !missingResult.isEmpty()) {
-						return missingResult;
-					}
-					break; // as we are expecting only one row
+
+				Result missingResult = resultScanner.next();
+				if (log.isDebugEnabled()) log.debug("missingResult: " + missingResult);
+				if (missingResult != null && !missingResult.isEmpty()) {
+					return missingResult;
 				}
+
 			}
 		}
 
@@ -381,12 +421,25 @@ public class HBaseSourceTableAdapter implements Serializable {
 
 	private Scan getScanForMissingColumns(Scan orgScan, byte[] rowKey, List<Filter> columnFilters) throws IOException {
 		Scan missingColumnsScan = new Scan();
+		
+		//we are trying to fetch specific row from hbase so setting that row key as prefix so that start and stop row will be set automatically in the scan
+		//and also set caching to 1
+		missingColumnsScan.setRowPrefixFilter(rowKey);
+		missingColumnsScan.setCaching(1);
+		
 		Filter rowFilter = new RowFilter(CompareOp.EQUAL, new BinaryComparator(rowKey));
-		Filter columnFilterList = new FilterList(Operator.MUST_PASS_ONE, columnFilters);
-
-		FilterList filters = new FilterList(Operator.MUST_PASS_ALL, rowFilter, columnFilterList);
-
-		missingColumnsScan.setFilter(filters);
+		Filter columnFilterList = null;
+		if(columnFilters!=null && !columnFilters.isEmpty()){
+			columnFilterList = new FilterList(Operator.MUST_PASS_ONE, columnFilters);
+		}
+		
+		if(columnFilterList!=null){
+			FilterList filters = new FilterList(Operator.MUST_PASS_ALL, rowFilter, columnFilterList);
+			missingColumnsScan.setFilter(filters);
+		}else{
+			missingColumnsScan.setFilter(rowFilter);
+		}
+		
 		missingColumnsScan.setTimeRange(0, orgScan.getTimeRange().getMax());
 
 		return missingColumnsScan;
@@ -553,28 +606,35 @@ public class HBaseSourceTableAdapter implements Serializable {
 	private ReconEntity reprocessThisRow(byte[] rowKey, TargetAdapter targetAdapter, SqlBean sqlQuery,
 			HBaseColumn jsonColumnField, Map<String, List<String>> reconColumnOpMap, Scan orgScan,
 			SystemConfig systemConfig) throws Exception {
+		if(log.isDebugEnabled())log.debug("Entering reprocessThisRow for row key: "+Bytes.toString(rowKey));
 		ReconEntity reconEntity = new ReconEntity();
 		Scan newScan = getNewScanForThisRow(orgScan, rowKey);
-
+		if(log.isDebugEnabled())log.debug("After getNewScanForThisRow call ");
 		// fire the newScan and fetch first result, as we have added row filter
 		// there can be at max one result
 		ResultScanner newResultScanner = fireScan(newScan, systemConfig);
-
+		if(log.isDebugEnabled())log.debug("After fireScan call ");
+		
 		if (newResultScanner != null) {
 			for (Result newResult : newResultScanner) {
 				if (newResult != null && !newResult.isEmpty()) {
-
+					if(log.isDebugEnabled())log.debug("calling processResultData from reprocessThisRow");
 					reconEntity = processResultData(newResult.getNoVersionMap(), rowKey, targetAdapter, sqlQuery,
 							jsonColumnField, reconColumnOpMap);
+					if(log.isDebugEnabled())log.debug("after calling processResultData from reprocessThisRow");
+
 				}
 
 				break; // as we are expecting only one row
 			}
 		}
+		if(log.isDebugEnabled())log.debug("exiting reprocessThisRow");
 		return reconEntity;
 	}
 
 	private DeleteFamilyMarkerInfo processDeleteFamilyMarkers(Result result, SqlBean sqlQuery, long minTimestamp) {
+		if(log.isDebugEnabled())log.debug("Entering processDeleteFamilyMarkers");
+		
 		boolean deleteFamilyMarkerFound = false, deleteFamilyMarkerFoundForAll = false;
 		Map<String, Long> deleteFamilyTimestamp = new HashMap<>();
 
@@ -594,6 +654,9 @@ public class HBaseSourceTableAdapter implements Serializable {
 				deleteFamilyMarkerFoundForAll = false;
 			}
 		}
+		
+		if(log.isDebugEnabled())log.debug("Exiting processDeleteFamilyMarkers");
+		
 		return new DeleteFamilyMarkerInfo(deleteFamilyMarkerFound, deleteFamilyMarkerFoundForAll,
 				deleteFamilyTimestamp);
 	}
@@ -615,6 +678,7 @@ public class HBaseSourceTableAdapter implements Serializable {
 			String tableName = hBaseSourceTableModel.getTableName();
 
 			try (Table table = con.getTable(TableName.valueOf(tableName))) {
+				if(log.isDebugEnabled())log.debug("within fireScan newScan.getStartRow(): "+newScan.getStartRow());
 				return table.getScanner(newScan);
 			}
 		} catch (IOException e) {
@@ -627,6 +691,14 @@ public class HBaseSourceTableAdapter implements Serializable {
 		
 		try {
 			Scan newScan = new Scan(orgScan);
+			
+			// we are trying to fetch specific row from hbase, so setting that
+			// row key as prefix so that start and stop row will be set
+			// automatically in the scan
+			// Also setting caching to 1
+			newScan.setRowPrefixFilter(rowKey);
+			newScan.setCaching(1);
+			
 			newScan.setRaw(false);
 			newScan.setTimeRange(0, orgScan.getTimeRange().getMax());
 			// Also add rowFilter in the new scan for this row.
@@ -671,28 +743,46 @@ public class HBaseSourceTableAdapter implements Serializable {
 			TargetAdapter targetAdapter, SqlBean query, HBaseColumn jsonColumnField,
 			Map<String, List<String>> reconColumnOpMap) throws Exception {
 
+		if(log.isDebugEnabled())log.debug("processResultData for rowkey: "+Bytes.toString(rowKey));
+		
 		ReconEntity reconEntity = new ReconEntity();
 
 		// do nothing - if the input result has no data
 		if (null == resultData || resultData.isEmpty()) {
+			if(log.isDebugEnabled())log.debug("resultData is empty.");
 			return reconEntity;
 		}
+		if(log.isDebugEnabled())log.debug("resultData is not empty.");
+		
 		DataRecord outputDataRecord = hBaseSourceTableModel.parseRowKey(rowKey);
+		
+		if(log.isDebugEnabled())log.debug("after parseRowKey");
+		
 		// do nothing - if parseRowKey doesn't return any columns
 		if (outputDataRecord == null || outputDataRecord.isRowkeyListEmpty()) {
+			if(log.isDebugEnabled())log.debug("parseRowKey didn't return any columns");
 			return reconEntity;
 		}
 		// fetch all static columns
 		Map<String, Map<String, Tuple>> staticColumnsMap = getAllStaticColumns(resultData);
 
+		if(log.isDebugEnabled())log.debug("after getAllStaticColumns");
+		
 		DataRecord staticColumnDataRecord = outputDataRecord.duplicate();
 		staticColumnDataRecord.addColumns(staticColumnsMap);
 
+		if(log.isDebugEnabled())log.debug("Before evaluateStaticConditions");
+		
 		Boolean staticPassed = query.evaluateStaticConditions(staticColumnDataRecord);
+		
+		if(log.isDebugEnabled())log.debug("staticPassed: "+staticPassed);
+		
 		if (staticPassed != null && !staticPassed) {
 			return reconEntity;
 		}
-
+		
+		
+		
 		// map of dynamic part to map of cf to map of cn and tuple
 		Map<String, Map<String, Map<String, Tuple>>> dynamicPartToCfCnMap = new HashMap<>();
 
@@ -742,11 +832,16 @@ public class HBaseSourceTableAdapter implements Serializable {
 			}
 		}
 
+		if(log.isDebugEnabled())log.debug("after creating dynamicPartToCfCnMap");
+		
 		if (dynamicPartToCfCnMap.isEmpty()) {
+			if(log.isDebugEnabled())log.debug("dynamicPartToCfCnMap is empty");
 
-			boolean dynamicPassed = query.evaluateDynamicConditions(staticColumnDataRecord);
-
-			if (dynamicPassed) {
+			Boolean dynamicPassed = query.evaluateDynamicConditions(staticColumnDataRecord);
+			
+			if(log.isDebugEnabled())log.debug("dynamicPassed: "+dynamicPassed);
+			
+			if (dynamicPassed==null || dynamicPassed) {
 
 				boolean selectedColumnFound = isSelectedColumnFound(staticColumnDataRecord, query);
 
@@ -754,8 +849,13 @@ public class HBaseSourceTableAdapter implements Serializable {
 
 					if (jsonColumnField != null) {
 						try {
+							if(log.isDebugEnabled())log.debug("before call to passThroughJsonAdapterAndWrite");
+							
 							ReconEntity reconEntity2 = passThroughJsonAdapterAndWrite(staticColumnDataRecord,
-									jsonColumnField, targetAdapter, reconColumnOpMap);
+									jsonColumnField, targetAdapter, reconColumnOpMap, query);
+							
+							if(log.isDebugEnabled())log.debug("after call to passThroughJsonAdapterAndWrite");
+							
 							if (reconEntity2 != null) {
 								reconEntity.addReconEntity(reconEntity2);
 							}
@@ -763,7 +863,7 @@ public class HBaseSourceTableAdapter implements Serializable {
 							System.err.println(e.getMessage());
 							return null;
 						}
-					} else {
+					} else if(dynamicPassed!=null) {
 						DataRecord structuredDR = targetAdapter.writeRow(targetModel, staticColumnDataRecord);
 						reconEntity.add(structuredDR, reconColumnOpMap);
 					}
@@ -771,6 +871,7 @@ public class HBaseSourceTableAdapter implements Serializable {
 			}
 		} else {
 			// iterate over dynamic columns for each <X>
+			if(log.isDebugEnabled())log.debug("dynamicPartToCfCnMap is not empty");
 			for (String dynamicPart : dynamicPartToCfCnMap.keySet()) {
 
 				// split the dynamic part (if the dynamic part has multiple
@@ -788,9 +889,11 @@ public class HBaseSourceTableAdapter implements Serializable {
 						dataRecForADynamicPart.addTupleToRowkey(tuple);
 					}
 
-					boolean dynamicPassed = query.evaluateDynamicConditions(dataRecForADynamicPart);
-
-					if (!dynamicPassed) {
+					Boolean dynamicPassed = query.evaluateDynamicConditions(dataRecForADynamicPart);
+					
+					if(log.isDebugEnabled())log.debug("dynamicPassed: "+dynamicPassed);
+					
+					if (dynamicPassed!=null && !dynamicPassed) {
 						// skipping writing row for this dynamic part
 						continue;
 					}
@@ -809,8 +912,13 @@ public class HBaseSourceTableAdapter implements Serializable {
 					if (selectedColumnFound) {
 						if (jsonColumnField != null) {
 							try {
+								if(log.isDebugEnabled())log.debug("before call to passThroughJsonAdapterAndWrite");
+								
 								ReconEntity reconEntity2 = passThroughJsonAdapterAndWrite(outputDataRecordCopy,
-										jsonColumnField, targetAdapter, reconColumnOpMap);
+										jsonColumnField, targetAdapter, reconColumnOpMap, query);
+								
+								if(log.isDebugEnabled())log.debug("after call to passThroughJsonAdapterAndWrite");
+								
 								if (reconEntity2 != null) {
 									reconEntity.addReconEntity(reconEntity2);
 								}
@@ -818,7 +926,7 @@ public class HBaseSourceTableAdapter implements Serializable {
 								System.err.println(e.getMessage());
 								return null;
 							}
-						} else {
+						} else if(dynamicPassed!=null){
 							DataRecord structuredDR = targetAdapter.writeRow(targetModel, outputDataRecordCopy);
 							reconEntity.add(structuredDR, reconColumnOpMap);
 						}
@@ -975,7 +1083,7 @@ public class HBaseSourceTableAdapter implements Serializable {
 	}
 
 	private ReconEntity passThroughJsonAdapterAndWrite(DataRecord ipRecord, HBaseColumn column,
-			TargetAdapter targetAdapter, Map<String, List<String>> reconColumnOpMap) throws Exception {
+			TargetAdapter targetAdapter, Map<String, List<String>> reconColumnOpMap, SqlBean query) throws Exception {
 
 		String json;
 		ReconEntity reconEntity = new ReconEntity();
@@ -983,12 +1091,18 @@ public class HBaseSourceTableAdapter implements Serializable {
 		if (column != null) {
 			if (ipRecord.isColumnNamePresent(column.getColumnNameWithoutDynamicComponent())) {
 				json = ipRecord.getColumnTupleValue(column.getColumnNameWithoutDynamicComponent());
-				// System.out.println("****** Json " + json);
+
 				if (json != null) {
 					List<DataRecord> dataRecords = JsonAdapter.flattenJson(ipRecord, json, targetModel);
 					for (DataRecord dataRecord : dataRecords) {
-						DataRecord structuredDR = targetAdapter.writeRow(targetModel, dataRecord);
-						reconEntity.add(structuredDR, reconColumnOpMap);
+						
+						boolean jsonConditionsPassed = query.evaluateJsonConditions(dataRecord);
+						
+						
+						if(jsonConditionsPassed){
+							DataRecord structuredDR = targetAdapter.writeRow(targetModel, dataRecord);
+							reconEntity.add(structuredDR, reconColumnOpMap);
+						}
 					}
 				}
 			}

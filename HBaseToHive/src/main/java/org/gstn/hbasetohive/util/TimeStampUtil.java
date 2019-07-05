@@ -16,6 +16,7 @@
 package org.gstn.hbasetohive.util;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.NavigableMap;
 
 import org.apache.hadoop.conf.Configuration;
@@ -42,16 +43,20 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.gstn.hbasetohive.exception.ActiveClusterException;
 import org.gstn.hbasetohive.job.pojo.MinTimestampAndJobType;
 import org.gstn.hbasetohive.job.pojo.SystemConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TimeStampUtil {
 
+	private static Logger log = LoggerFactory.getLogger(TimeStampUtil.class);
+	
 	public static MinTimestampAndJobType getMinTimestampAndJobType(String sourceSchema, String targetSchema,
-			String sourceZK, SystemConfig systemConfig) throws IOException {
+			SystemConfig systemConfig) throws IOException {
 
 		boolean minTimestampFound = false;
 
 		Configuration conf = HBaseConfiguration.create();
-		conf.set("hbase.zookeeper.quorum", sourceZK);
+		conf.set("hbase.zookeeper.quorum", systemConfig.getTimestampTableHbaseZk());
 
 		Connection hbaseConnection = ConnectionFactory.createConnection(conf);
 
@@ -74,14 +79,18 @@ public class TimeStampUtil {
 				minTimestampFound = true;
 			}
 		}
+		
+		if(log.isDebugEnabled())log.debug("isIncremental: "+minTimestampFound);
+		if(log.isDebugEnabled())log.debug("minTimeStamp: "+new Date(minTimeStamp));
+		
 		return new MinTimestampAndJobType(minTimestampFound, minTimeStamp);
 	}
 
-	public static void writeTimestampToHBaseTable(String sourceSchema, String targetSchema, String sourceZK,
+	public static void writeTimestampToHBaseTable(String sourceSchema, String targetSchema,
 			SystemConfig systemConfig, long time) throws IOException {
 
 		Configuration conf = HBaseConfiguration.create();
-		conf.set("hbase.zookeeper.quorum", sourceZK);
+		conf.set("hbase.zookeeper.quorum", systemConfig.getTimestampTableHbaseZk());
 
 		Connection hbaseConnection = ConnectionFactory.createConnection(conf);
 

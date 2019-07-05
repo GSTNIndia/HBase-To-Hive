@@ -76,19 +76,26 @@ public class ConditionTreeManager {
 	 *            - conditions to be evaluated
 	 * @param outputDataRecord
 	 *            - object that stores processed data
-	 * @return true if all the condition tree is evaluated as true, false
-	 *         otherwise
+	 * @return true if the condition tree is evaluated as true, false
+	 *         if condition tree evaluates to false, null if condition tree can not be evaluated completely 
 	 * @throws Exception
 	 *             if conditions are invalid
 	 */
-	public static boolean evaluateDyanmicColumnConditions(ConditionTree conditionTree, DataRecord outputDataRecord)
+	public static Boolean evaluateDyanmicColumnConditions(ConditionTree conditionTree, DataRecord outputDataRecord)
 			throws Exception {
 		Boolean result = evaluateTree(conditionTree, outputDataRecord, false, false);
+		
+		return result;
+	}
+	
+	public static boolean evaluateJsonConditions(ConditionTree conditionTree, DataRecord outputDataRecord)
+			throws Exception {
+		Boolean result = evaluateTree(conditionTree, outputDataRecord, false, false, true);
 		if (result != null && result) {
 			return true;
 		} else {
 			// if result is null, it means some column(s) specified in
-			// condition was missing in data
+			// condition was missing in json
 			// returning false in this case
 			return false;
 		}
@@ -109,7 +116,7 @@ public class ConditionTreeManager {
 	 *         tree
 	 * @throws Exception
 	 */
-	public static Boolean evaluateTree(ConditionTree conditionTree, DataRecord outputDataRecord, boolean applyStatic, boolean rowKeyOnlyFlag)
+	public static Boolean evaluateTree(ConditionTree conditionTree, DataRecord outputDataRecord, boolean applyStatic, boolean rowKeyOnlyFlag,  boolean jsonFlag)
 			throws Exception {
 		if (!conditionTree.isEvaluated()) {
 			Operator operator = conditionTree.getOperator();
@@ -125,9 +132,9 @@ public class ConditionTreeManager {
 				Condition condition = conditionTree.getConditions().get(i);
 
 				if (condition instanceof ConditionTree) {
-					result = evaluateTree((ConditionTree) condition, outputDataRecord, applyStatic, rowKeyOnlyFlag);
+					result = evaluateTree((ConditionTree) condition, outputDataRecord, applyStatic, rowKeyOnlyFlag, jsonFlag);
 				} else {
-					result = evaluateColumnCondition(condition, outputDataRecord, applyStatic, rowKeyOnlyFlag);
+					result = evaluateColumnCondition(condition, outputDataRecord, applyStatic, rowKeyOnlyFlag, jsonFlag);
 				}
 
 				if (i < noOfConditions - 1 && result != null) {
@@ -180,6 +187,10 @@ public class ConditionTreeManager {
 		}
 	}
 
+	public static Boolean evaluateTree(ConditionTree conditionTree, DataRecord outputDataRecord, boolean applyStatic, boolean rowKeyOnlyFlag)
+			throws Exception {
+		return evaluateTree(conditionTree, outputDataRecord, applyStatic, rowKeyOnlyFlag, false);
+	}
 	/**
 	 * This method checks if the current result is conclusive, based on the
 	 * operator
@@ -218,7 +229,7 @@ public class ConditionTreeManager {
 	 * @throws Exception
 	 *             if condition is invalid
 	 */
-	private static Boolean evaluateColumnCondition(Condition condition, DataRecord outputDataRecord, boolean staticFlag, boolean rowKeyOnlyFlag)
+	private static Boolean evaluateColumnCondition(Condition condition, DataRecord outputDataRecord, boolean staticFlag, boolean rowKeyOnlyFlag, boolean jsonFlag)
 			throws Exception {
 		Boolean result = null;
 
@@ -233,33 +244,47 @@ public class ConditionTreeManager {
 				}
 			} else if(!rowKeyOnlyFlag){
 				// check if column is dynamic
+				
+				if(condition.isJsonFieldCondition()){
+					if(jsonFlag){
+						// evaluating the condition
+						if (outputDataRecord.isColumnNamePresent(cnFromCondition)) {
+							Tuple tuple = outputDataRecord.getColumnTuple(cnFromCondition);
+							result = applyOperator(condition, tuple);
+						}
+					}else{
+						//we are not evaluating for json conditions, so return from here
+						return null;
+					}
+				}else{
 
-				boolean isColumnStatic;
-				if (condition.isDynamicPartCondition())
-					isColumnStatic = false;
-				else {
-					Matcher matcher = dyanmicColumnPattern.matcher(cnFromCondition);
-
-					if (matcher.find()) {
+					boolean isColumnStatic;
+					if (condition.isDynamicPartCondition())
 						isColumnStatic = false;
-					} else {
-						isColumnStatic = true;
+					else {
+						Matcher matcher = dyanmicColumnPattern.matcher(cnFromCondition);
+	
+						if (matcher.find()) {
+							isColumnStatic = false;
+						} else {
+							isColumnStatic = true;
+						}
+	
+						if (!isColumnStatic) {
+							// removing <X> from dynamic column name from condition
+							cnFromCondition = matcher.replaceFirst("");
+						}
 					}
-
-					if (!isColumnStatic) {
-						// removing <X> from dynamic column name from condition
-						cnFromCondition = matcher.replaceFirst("");
+	
+					if (staticFlag != isColumnStatic) {
+						return null;
 					}
-				}
-
-				if (staticFlag != isColumnStatic) {
-					return null;
-				}
-
-				// evaluating the condition
-				if (outputDataRecord.isColumnNamePresent(cnFromCondition)) {
-					Tuple tuple = outputDataRecord.getColumnTuple(cnFromCondition);
-					result = applyOperator(condition, tuple);
+	
+					// evaluating the condition
+					if (outputDataRecord.isColumnNamePresent(cnFromCondition)) {
+						Tuple tuple = outputDataRecord.getColumnTuple(cnFromCondition);
+						result = applyOperator(condition, tuple);
+					}
 				}
 
 			}else{
@@ -296,35 +321,53 @@ public class ConditionTreeManager {
 			return false;
 		} else {
 			try {
-				Class<?> dataType = tuple.getColumnDataType();
-				String operator = condition.getConditionalOperator();
-
-				Comparable<?> valueFromCondition = null;
-				Comparable<Comparable> valueFromTuple = null;
-
-				try {
-					valueFromCondition = DataTypeUtil.parseValueToType(condition.getValue(), dataType);
-				} catch (NumberFormatException e) {
-					System.err
-							.println("Exception in applyOperator while parsing condition value: " + condition.getValue()
-									+ " for column: " + condition.getColumnName() + " into data type: " + dataType);
-					throw e;
+				
+				if(condition.isPatternCondition()){
+					
+					String operator = condition.getConditionalOperator();
+					
+					String valueFromTuple = tuple.getColumnValue();
+					
+					boolean matchResult = condition.getPattern().matcher(valueFromTuple).matches();
+					
+					if(operator.equalsIgnoreCase("NOT REGEXP")){
+						return !matchResult;
+					}else{
+						return matchResult;
+					}
+					
+				}else{
+				
+					Class<?> dataType = tuple.getColumnDataType();
+					String operator = condition.getConditionalOperator();
+	
+					Comparable<?> valueFromCondition = null;
+					Comparable<Comparable> valueFromTuple = null;
+	
+					try {
+						valueFromCondition = DataTypeUtil.parseValueToType(condition.getValue(), dataType);
+					} catch (NumberFormatException e) {
+						System.err
+								.println("Exception in applyOperator while parsing condition value: " + condition.getValue()
+										+ " for column: " + condition.getColumnName() + " into data type: " + dataType);
+						throw e;
+					}
+	
+					try {
+						valueFromTuple = DataTypeUtil.parseValueToType(tuple.getColumnValue(), dataType);
+					} catch (NumberFormatException e) {
+						System.err.println("Exception in applyOperator while parsing tuple value: " + tuple.getColumnValue()
+								+ " for column: " + tuple.getColumnName() + " into data type: " + dataType);
+						throw e;
+					}
+	
+					// valueFromTuple should be compared with valueFromCondition and
+					// not vice versa, as the operator and values from conditions
+					// are to be compared with valueFromCondition
+					int compareResult = valueFromTuple.compareTo(valueFromCondition);
+	
+					return interpretCompareResult(compareResult, operator);
 				}
-
-				try {
-					valueFromTuple = DataTypeUtil.parseValueToType(tuple.getColumnValue(), dataType);
-				} catch (NumberFormatException e) {
-					System.err.println("Exception in applyOperator while parsing tuple value: " + tuple.getColumnValue()
-							+ " for column: " + tuple.getColumnName() + " into data type: " + dataType);
-					throw e;
-				}
-
-				// valueFromTuple should be compared with valueFromCondition and
-				// not vice versa, as the operator and values from conditions
-				// are to be compared with valueFromCondition
-				int compareResult = valueFromTuple.compareTo(valueFromCondition);
-
-				return interpretCompareResult(compareResult, operator);
 			} catch (Exception e) {
 				System.err.println("Error during applyOperator: " + e.getMessage());
 				throw e;

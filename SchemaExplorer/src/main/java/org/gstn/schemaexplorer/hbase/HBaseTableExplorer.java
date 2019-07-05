@@ -227,6 +227,8 @@ public class HBaseTableExplorer implements Serializable {
 	 * 
 	 * @param queryString
 	 *            - The select query
+	 * @param targetJsonFields 
+	 * 			  - List of all target json column names
 	 * @return An object of class SqlBean, which stores information about the
 	 *         query
 	 * @throws IOException
@@ -234,11 +236,11 @@ public class HBaseTableExplorer implements Serializable {
 	 *             If columns and conditions used in the query are invalid
 	 * @throws ColumnNotFoundException 
 	 */
-	public SqlBean parseAndGetValidatedQuery(String queryString) throws IOException, HQLException, ColumnNotFoundException {
+	public SqlBean parseAndGetValidatedQuery(String queryString, Map<String,Class> targetJsonFields) throws IOException, HQLException, ColumnNotFoundException {
 		InputStream is = new ByteArrayInputStream(queryString.getBytes(StandardCharsets.UTF_8));
 		try {
 			SqlBean sqlBean = parseHql(is);
-			engine.validateQueryForHbaseToHive(sqlBean);
+			engine.validateQueryForHbaseToHive(sqlBean,targetJsonFields);
 			sqlBean.getCategorisedColumns().initialize(hBaseIR.getAllColumns(sqlBean.getSchemaName()));
 			return sqlBean;
 		} catch (IOException | HQLException e) {
@@ -377,6 +379,10 @@ public class HBaseTableExplorer implements Serializable {
 
 	public List<String> getAllFieldNames(String targetSchema) {
 		return hBaseIR.getAllFieldNames(targetSchema);
+	}
+	
+	public Map<String,Class> getSchemaJsonColumns(String targetSchema) {
+		return hBaseIR.getSchemaJsonColumns(targetSchema);
 	}
 
 	public boolean containsJsonColumn(String sourceSchema) {

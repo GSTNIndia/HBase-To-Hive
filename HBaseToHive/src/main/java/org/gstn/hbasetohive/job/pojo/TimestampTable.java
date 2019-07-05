@@ -22,6 +22,7 @@ import org.gstn.hbasetohive.exception.ValidationException;
 @SuppressWarnings("serial")
 public class TimestampTable implements Serializable {
 
+	private String timestampTableHbaseZk;
 	private String tableName;
 	private String columnFamily;
 	private String columnName;
@@ -62,6 +63,14 @@ public class TimestampTable implements Serializable {
 								+ " <columnName> in config file: " + scFilePath + ", for the incremental load to work");
 			}
 		}
+	}
+
+	public String getTimestampTableHbaseZk() {
+		return timestampTableHbaseZk;
+	}
+
+	public void setTimestampTableHbaseZk(String timestampTableHbaseZk) {
+		this.timestampTableHbaseZk = timestampTableHbaseZk;
 	}
 
 }

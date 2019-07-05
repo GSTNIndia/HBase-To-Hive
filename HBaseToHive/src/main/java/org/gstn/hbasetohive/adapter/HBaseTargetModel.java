@@ -18,6 +18,7 @@ package org.gstn.hbasetohive.adapter;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.gstn.schemaexplorer.entity.DataRecord;
 import org.gstn.schemaexplorer.entity.Tuple;
@@ -176,6 +177,11 @@ public class HBaseTargetModel implements TargetModel, Serializable {
 		}
 
 		return outputDataRecord;
+	}
+
+	@Override
+	public Map<String, Class> getSchemaJsonColumns() {
+		return hBaseExplorer.getSchemaJsonColumns(targetSchema);
 	}
 
 }

@@ -195,19 +195,20 @@ public class Rowkey implements Serializable {
 	}
 
 	/**
-	 * This method returns a list of non hash row key component names
+	 * This method returns a list of non hash and non literal row key component names
 	 * 
-	 * @return list of all row key field names
+	 * @return list of non hash and non literal row key component names
 	 */
 	public List<String> getNonHashRowkeyFieldNames() {
 		ArrayList<String> allRowkeyNames = new ArrayList<>();
 		for (RowkeyField rkf : rowkeyFields) {
-			if(!rkf.isHashed()){
+			if(!rkf.isHashed() && !rkf.isLiteral()){
 				allRowkeyNames.add(rkf.getName());
 			}
 		}
 		return allRowkeyNames;
 	}
+	
 	public List<RowkeyField> getRowkeyColumns() {
 		List<RowkeyField> copy = new ArrayList<>();
 		copy.addAll(rowkeyFields);

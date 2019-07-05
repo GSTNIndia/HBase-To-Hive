@@ -211,7 +211,8 @@ public class SqlListener extends sqlBaseListener implements ParseTreeListener {
 		condition.setColumnFamily(cf);
 		condition.setColumnName(cn);
 		condition.setConditionalOperator(op);
-		condition.setValue(value.replaceAll("\"", ""));
+		//quote character can be " or ' . Removing quote character from first and last position
+		condition.setValue(value.substring(1, value.length()-1));
 
 		// below line is kept to support design of WideExplorer
 		sqlBean.getConditionList().add(condition);

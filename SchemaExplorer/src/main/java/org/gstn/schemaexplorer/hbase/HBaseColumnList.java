@@ -33,6 +33,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.gstn.schemaexplorer.exception.InvalidColumnException;
 import org.gstn.schemaexplorer.exception.InvalidSchemaException;
+import org.gstn.schemaexplorer.util.DataTypeUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xerial.snappy.Snappy;
@@ -482,6 +483,18 @@ public class HBaseColumnList implements Serializable {
 			}
 		}
 		return result;
+	}
+	
+	
+	public Map<String,Class> getSchemaJsonColumns() {
+		Map<String,Class> columnNames = new HashMap<>();
+		for (String parentPath : columnList.keySet()) {
+			for (HBaseColumn column : columnList.get(parentPath)) {
+				if (column.isJsonField())
+					columnNames.put(column.getColumnName(),DataTypeUtil.getDataTypeClassForHiveDataType(column.getColumnDataType()));
+			}
+		}
+		return columnNames;
 	}
 
 	public Class<?> getColumnDataType(String columnName) {
