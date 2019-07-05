@@ -22,7 +22,6 @@ import org.gstn.schemaexplorer.exception.InvalidSchemaException;
 import org.gstn.schemaexplorer.hbase.HBaseTableExplorer;
 import org.gstn.schemaexplorer.hive.HiveTableExplorer;
 
-// java -cp /opt/cloudera/parcels/CDH/jars/*:HBaseToHive-1.0-SNAPSHOT-jar-with-dependencies.jar  org.gstn.hbasetohive.util.CreateIncrementalHiveScript HbaseExplorer.schema HiveExplorer.schema GSTR3B_SUMMARY_RPT GSTR3B_SUMMARY_STG hdfs://10.232.37.44:8022/  test_hive_script /user/gstapp/HbaseToHive test_job
 public class CreateIncrementalHiveScript {
 
 	public static void main(String[] args) throws InvalidSchemaException {
