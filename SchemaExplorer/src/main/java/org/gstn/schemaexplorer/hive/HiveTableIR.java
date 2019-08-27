@@ -344,7 +344,7 @@ public class HiveTableIR implements Serializable {
 	private List<Map<String, String>> getDynamicPartColumnsAndTypeForDeletion(HBaseTableExplorer hBaseTableExplorer,
 			String sourceSchemaName, String targetSchema) {
 		// get all dynamic part names from source
-		List<String> dynamicPartNames = hBaseTableExplorer.getDynamicPartNames(sourceSchemaName);
+		List<String> dynamicPartNames = hBaseTableExplorer.getDynamicPartNamesExcludingSKIP(sourceSchemaName);
 
 		
 		Map<String,String> nonPartitionColumns = schemaColumnList.get(targetSchema).getHiveColumnsForDDL();

@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
@@ -375,6 +376,19 @@ public class HBaseTableExplorer implements Serializable {
 
 	public List<String> getDynamicPartNames(String sourceSchema) {
 		return hBaseIR.getDynamicPartNames(sourceSchema);
+	}
+	
+	public List<String> getDynamicPartNamesExcludingSKIP(String sourceSchema) {
+		List<String> allDynamicParts =  hBaseIR.getDynamicPartNames(sourceSchema);
+		
+		List<String> requiredDynamicParts = new ArrayList<>();
+		for (String dynamicPart : allDynamicParts) {
+			if(!dynamicPart.equalsIgnoreCase("SKIP")){
+				requiredDynamicParts.add(dynamicPart);
+			}
+		}
+		
+		return requiredDynamicParts;
 	}
 
 	public List<String> getAllFieldNames(String targetSchema) {
