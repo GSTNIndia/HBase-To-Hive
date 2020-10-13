@@ -30,7 +30,7 @@
 	<properties>
 		<hbase.version>1.2.0-cdh5.11.2</hbase.version>
 		<spark.version>1.6.0</spark.version>
-		<junit.version>4.12</junit.version>
+		<junit.version>4.13.1</junit.version>
 		<schemaexplorer.version>1.0-SNAPSHOT</schemaexplorer.version>
 		<slf4j-log4j12.version>1.7.21</slf4j-log4j12.version>
 		<antlr4-runtime.version>4.3</antlr4-runtime.version>
